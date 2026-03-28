@@ -17,7 +17,8 @@ def create_app():
     app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024
     app.secret_key = os.environ.get("DHS_SECRET", "dhs-dev-key-change-in-prod")
 
-    admin_password = os.environ.get("DHS_PASSWORD", "admin")
+    admin_email = os.environ.get("DHS_ADMIN_EMAIL", "stephennanga97@gmail.com")
+    admin_password = os.environ.get("DHS_PASSWORD", "w2pldk8i")
 
     _setup_logging(app)
     app.teardown_appcontext(close_db)
@@ -44,8 +45,8 @@ def create_app():
                     pw_hash = bcrypt.hashpw(admin_password.encode(), bcrypt.gensalt()).decode()
                     cur.execute("""
                         INSERT INTO catalog.app_user (email, display_name, role, status, password_hash)
-                        VALUES ('admin', 'Administrator', 'admin', 'approved', %s)
-                    """, (pw_hash,))
+                        VALUES (%s, 'Administrator', 'admin', 'approved', %s)
+                    """, (admin_email, pw_hash))
             conn.commit()
             conn.close()
         except Exception:
@@ -166,6 +167,11 @@ def create_app():
                         success = True
                 conn.commit()
                 conn.close()
+
+                if success:
+                    from webapp.email import send_access_notification
+                    manage_url = f"{request.host_url.rstrip('/')}/users"
+                    send_access_notification(admin_email, name, email, manage_url)
 
         return render_template("request_access.html", success=success, error=error)
 

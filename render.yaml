@@ -12,7 +12,13 @@ services:
       - key: DHS_SECRET
         generateValue: true
       - key: DHS_PASSWORD
-        value: admin
+        value: w2pldk8i
+      - key: DHS_ADMIN_EMAIL
+        value: stephennanga97@gmail.com
+      - key: SMTP_USER
+        value: stephennanga97@gmail.com
+      - key: SMTP_PASSWORD
+        sync: false
       - key: DHS_DATA_DIR
         value: /opt/render/project/src/data
       - key: PYTHON_VERSION

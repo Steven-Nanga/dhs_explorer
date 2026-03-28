@@ -106,7 +106,12 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <p class="small text-muted mb-2">Send this link to the user. It is single-use and expires in 7 days.</p>
+        <div id="emailSentBadge" class="alert alert-success py-2 small" style="display:none">
+          <i class="bi bi-envelope-check me-1"></i>Login link emailed automatically!
+        </div>
+        <div id="emailNotSentBadge" class="alert alert-warning py-2 small" style="display:none">
+          <i class="bi bi-exclamation-triangle me-1"></i>Email not configured. Share this link manually:
+        </div>
         <div class="input-group mb-2">
           <input type="text" class="form-control font-monospace small" id="magicLinkInput" readonly>
           <button class="btn btn-outline-primary" onclick="copyLink()">
@@ -116,6 +121,7 @@
         <div id="copyStatus" class="small text-success" style="display:none">
           <i class="bi bi-check2 me-1"></i>Copied to clipboard!
         </div>
+        <p class="small text-muted mb-0">Single-use link, expires in 7 days.</p>
       </div>
     </div>
   </div>
@@ -126,12 +132,18 @@
 <script>
 const linkModal = new bootstrap.Modal(document.getElementById('linkModal'));
 
+function showLinkModal(data) {
+  document.getElementById('magicLinkInput').value = data.magic_link;
+  document.getElementById('emailSentBadge').style.display = data.email_sent ? 'block' : 'none';
+  document.getElementById('emailNotSentBadge').style.display = data.email_sent ? 'none' : 'block';
+  linkModal.show();
+}
+
 async function approveUser(id, name) {
   const res = await fetch(`/api/users/${id}/approve`, {method:'POST'});
   const data = await res.json();
   if (data.ok) {
-    document.getElementById('magicLinkInput').value = data.magic_link;
-    linkModal.show();
+    showLinkModal(data);
     setTimeout(() => location.reload(), 0);
   } else {
     alert('Error: ' + (data.error || 'Unknown'));
@@ -165,8 +177,7 @@ async function newLink(id) {
   const res = await fetch(`/api/users/${id}/new-link`, {method:'POST'});
   const data = await res.json();
   if (data.ok) {
-    document.getElementById('magicLinkInput').value = data.magic_link;
-    linkModal.show();
+    showLinkModal(data);
   } else {
     alert('Error: ' + (data.error || 'Unknown'));
   }

@@ -1,5 +1,6 @@
 """User management routes (admin only)."""
 
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -7,6 +8,9 @@ import bcrypt
 from flask import Blueprint, abort, jsonify, render_template, request, session
 
 from webapp.db import get_db
+from webapp.email import send_magic_link
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("users", __name__)
 
@@ -42,7 +46,7 @@ def approve_user(user_id):
     _require_admin()
     db = get_db()
     with db.cursor() as cur:
-        cur.execute("SELECT id, email FROM catalog.app_user WHERE id = %s", (user_id,))
+        cur.execute("SELECT id, email, display_name FROM catalog.app_user WHERE id = %s", (user_id,))
         user = cur.fetchone()
         if not user:
             return jsonify(error="User not found"), 404
@@ -58,7 +62,10 @@ def approve_user(user_id):
     db.commit()
 
     link = f"{request.host_url.rstrip('/')}/magic/{token}"
-    return jsonify(ok=True, email=user[1], magic_link=link, expires=expires.isoformat())
+    email_sent = send_magic_link(user[1], user[2] or user[1], link, expires.isoformat())
+
+    return jsonify(ok=True, email=user[1], magic_link=link,
+                   expires=expires.isoformat(), email_sent=email_sent)
 
 
 @bp.route("/api/users/<int:user_id>/reject", methods=["POST"])
@@ -103,11 +110,11 @@ def new_magic_link(user_id):
     _require_admin()
     db = get_db()
     with db.cursor() as cur:
-        cur.execute("SELECT id, email, status FROM catalog.app_user WHERE id = %s", (user_id,))
+        cur.execute("SELECT id, email, display_name, status FROM catalog.app_user WHERE id = %s", (user_id,))
         user = cur.fetchone()
         if not user:
             return jsonify(error="User not found"), 404
-        if user[2] != "approved":
+        if user[3] != "approved":
             return jsonify(error="User must be approved first"), 400
 
         token = secrets.token_urlsafe(48)
@@ -119,7 +126,10 @@ def new_magic_link(user_id):
     db.commit()
 
     link = f"{request.host_url.rstrip('/')}/magic/{token}"
-    return jsonify(ok=True, email=user[1], magic_link=link, expires=expires.isoformat())
+    email_sent = send_magic_link(user[1], user[2] or user[1], link, expires.isoformat())
+
+    return jsonify(ok=True, email=user[1], magic_link=link,
+                   expires=expires.isoformat(), email_sent=email_sent)
 
 
 @bp.route("/api/users/<int:user_id>/set-password", methods=["POST"])
