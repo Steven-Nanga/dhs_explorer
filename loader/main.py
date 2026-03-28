@@ -4,6 +4,7 @@ Usage
 -----
     python -m loader migrate          # apply SQL migrations
     python -m loader load             # discover zips and load everything
+    python -m loader load --only-year 2024 --only-program DHS   # resume one survey
     python -m loader status           # show what has been loaded
     python -m loader all              # migrate then load
 """
@@ -46,12 +47,25 @@ def run_migrations(conn) -> None:
     logger.info("Migrations complete (%d file(s))", len(files))
 
 
-def load_all(conn, data_dir: str = None) -> None:
+def load_all(
+    conn, data_dir: str = None,
+    only_year: str = None,
+    only_program: str = None,
+) -> None:
     data_dir = data_dir or str(config.DATA_DIR)
     bundles = discover.discover_zips(data_dir)
 
+    if only_year:
+        oy = only_year.strip()
+        bundles = [b for b in bundles if oy in b.year_label]
+        logger.info("Filter --only-year %r → %d bundle(s)", only_year, len(bundles))
+    if only_program:
+        op = only_program.strip().upper()
+        bundles = [b for b in bundles if b.program_code == op]
+        logger.info("Filter --only-program %r → %d bundle(s)", only_program, len(bundles))
+
     if not bundles:
-        logger.warning("No zip files found in %s", data_dir)
+        logger.warning("No zip bundles to load (check filters or data dir %s)", data_dir)
         return
 
     total_files = 0
@@ -186,6 +200,16 @@ def main() -> None:
     parser.add_argument("--db-host", help="Override database host")
     parser.add_argument("--db-port", type=int, help="Override database port")
     parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument(
+        "--only-year",
+        metavar="TEXT",
+        help="Only load zips whose year label contains this (e.g. 2024). Use to resume one survey.",
+    )
+    parser.add_argument(
+        "--only-program",
+        metavar="CODE",
+        help="Only load this program: DHS, MIS, AIS, …",
+    )
 
     args = parser.parse_args()
 
@@ -212,7 +236,11 @@ def main() -> None:
         if args.command in ("migrate", "all"):
             run_migrations(conn)
         if args.command in ("load", "all"):
-            load_all(conn, args.data_dir)
+            load_all(
+                conn, args.data_dir,
+                only_year=args.only_year,
+                only_program=args.only_program,
+            )
         if args.command == "status":
             show_status(conn)
     finally:

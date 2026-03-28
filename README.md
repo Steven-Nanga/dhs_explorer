@@ -68,6 +68,16 @@ python -m loader all
 
 This runs migrations and loads all discovered files.
 
+**Resume one survey (e.g. finish Malawi 2024 DHS after a failed run):** set `DATABASE_URL` to your cloud database, then:
+
+```bash
+python -m loader load --only-year 2024 --only-program DHS
+```
+
+Already-loaded files are skipped; only missing recodes are ingested.
+
+**Storage (important):** Neon’s free tier is about **512 MB** total. A full Malawi **2024 DHS** (all recodes, wide tables + overflow) often needs **more than that** by itself. If you see `DiskFull` / `project size limit` in the loader log, either delete other surveys in the app (and run `VACUUM` on the server if you use Postgres directly), **upgrade Neon** for more space, or keep the full dataset on a **local Postgres** instance only.
+
 ### 5. Start the Web Interface
 
 ```bash
