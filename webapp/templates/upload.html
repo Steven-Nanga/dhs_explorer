@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Upload — DHS Explorer{% endblock %}
+
+{% block content %}
+<h4 class="page-title mb-4">Upload DHS Data</h4>
+
+<div class="row g-4">
+  <!-- Drop zone -->
+  <div class="col-lg-7">
+    <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <i class="bi bi-cloud-arrow-up icon d-block mb-3"></i>
+      <h5 class="fw-semibold">Drop a DHS .zip file here</h5>
+      <p class="text-muted mb-2">or click to browse</p>
+      <p class="text-muted-sm mb-0">Accepts standard DHS download zips (up to 500 MB)</p>
+      <input type="file" id="fileInput" accept=".zip" hidden>
+    </div>
+
+    <!-- Progress panel (hidden by default) -->
+    <div id="progressPanel" class="mt-3" style="display:none">
+      <div class="card card-clean p-3">
+        <div class="d-flex align-items-center mb-2">
+          <div id="statusIcon" class="me-2"></div>
+          <strong id="statusText">Uploading…</strong>
+          <span id="fileName" class="text-muted-sm ms-2"></span>
+        </div>
+        <div class="progress mb-3" style="height:6px">
+          <div id="progressBar" class="progress-bar bg-primary progress-bar-striped progress-bar-animated" style="width:100%"></div>
+        </div>
+        <div class="log-box" id="logBox">Waiting for output…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Instructions -->
+  <div class="col-lg-5">
+    <div class="card card-clean p-3">
+      <h6 class="fw-semibold mb-3"><i class="bi bi-info-circle me-1"></i> How it works</h6>
+      <ol class="mb-0 ps-3">
+        <li class="mb-2">Upload a <strong>.zip</strong> file downloaded from the DHS Program website.</li>
+        <li class="mb-2">The system parses the filename to identify the country, year, and survey programme.</li>
+        <li class="mb-2">Stata <code>.DTA</code> files are extracted and loaded into typed PostgreSQL tables.</li>
+        <li class="mb-2">Variable names, labels, and value mappings are preserved in the metadata catalog.</li>
+        <li class="mb-0">Already-loaded files are automatically skipped (safe to re-upload).</li>
+      </ol>
+    </div>
+    <div class="card card-clean p-3 mt-3">
+      <h6 class="fw-semibold mb-2"><i class="bi bi-check-circle me-1"></i> Supported Formats</h6>
+      <div class="d-flex flex-wrap gap-2">
+        <span class="badge bg-primary-subtle text-primary">DHS</span>
+        <span class="badge bg-success-subtle text-success">MIS</span>
+        <span class="badge bg-warning-subtle text-warning">AIS</span>
+        <span class="badge bg-info-subtle text-info">SPA</span>
+        <span class="badge bg-secondary-subtle text-secondary">KAP</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const dropZone   = document.getElementById('dropZone');
+const fileInput   = document.getElementById('fileInput');
+const panel       = document.getElementById('progressPanel');
+const statusIcon  = document.getElementById('statusIcon');
+const statusText  = document.getElementById('statusText');
+const fileNameEl  = document.getElementById('fileName');
+const logBox      = document.getElementById('logBox');
+const progressBar = document.getElementById('progressBar');
+
+['dragenter','dragover'].forEach(e =>
+  dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.add('dragover'); }));
+['dragleave','drop'].forEach(e =>
+  dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.remove('dragover'); }));
+
+dropZone.addEventListener('drop', ev => {
+  const file = ev.dataTransfer.files[0];
+  if (file) uploadFile(file);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) uploadFile(fileInput.files[0]);
+});
+
+async function uploadFile(file) {
+  if (!file.name.toLowerCase().endsWith('.zip')) {
+    alert('Please upload a .zip file'); return;
+  }
+  panel.style.display = 'block';
+  statusText.textContent = 'Uploading ' + file.name + '…';
+  fileNameEl.textContent = '';
+  logBox.textContent = 'Uploading file to server…\n';
+  statusIcon.innerHTML = '<div class="spinner-border spinner-border-sm text-primary"></div>';
+
+  const form = new FormData();
+  form.append('file', file);
+
+  let res;
+  try {
+    res = await fetch('/api/upload', { method: 'POST', body: form });
+  } catch (err) {
+    statusText.textContent = 'Upload failed'; logBox.textContent += 'Network error: ' + err; return;
+  }
+  const data = await res.json();
+  if (!res.ok) { statusText.textContent = 'Error'; logBox.textContent += data.error; return; }
+
+  statusText.textContent = 'Processing…';
+  fileNameEl.textContent = file.name;
+  logBox.textContent = 'File uploaded. Loading into database…\n';
+  pollJob(data.job_id);
+}
+
+function pollJob(jobId) {
+  const iv = setInterval(async () => {
+    const res = await fetch('/api/job/' + jobId);
+    const job = await res.json();
+    logBox.textContent = job.log.join('\n') || 'Waiting…';
+    logBox.scrollTop = logBox.scrollHeight;
+
+    if (job.status === 'completed') {
+      clearInterval(iv);
+      statusText.textContent = 'Complete!';
+      statusIcon.innerHTML = '<i class="bi bi-check-circle-fill text-success fs-5"></i>';
+      progressBar.classList.remove('progress-bar-striped','progress-bar-animated');
+      progressBar.classList.add('bg-success');
+    } else if (job.status === 'failed') {
+      clearInterval(iv);
+      statusText.textContent = 'Failed';
+      statusIcon.innerHTML = '<i class="bi bi-x-circle-fill text-danger fs-5"></i>';
+      progressBar.classList.remove('progress-bar-striped','progress-bar-animated');
+      progressBar.classList.add('bg-danger');
+      if (job.error) logBox.textContent += '\nERROR: ' + job.error;
+    }
+  }, 2000);
+}
+</script>
+{% endblock %}

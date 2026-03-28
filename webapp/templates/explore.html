@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Explore — DHS Explorer{% endblock %}
+
+{% block content %}
+<h4 class="page-title mb-4">Explore Surveys</h4>
+
+{% if not countries %}
+<div class="card card-clean p-4 text-center">
+  <i class="bi bi-inbox fs-1 text-muted d-block mb-2"></i>
+  <p class="text-muted mb-2">No data loaded yet.</p>
+  <a href="/upload" class="btn btn-primary btn-sm">Upload Data</a>
+</div>
+{% endif %}
+
+{% for c in countries %}
+<div class="card card-clean mb-4">
+  <div class="card-header bg-white border-0 pt-3 px-3 pb-0 d-flex align-items-center">
+    <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3" style="width:42px;height:42px;font-size:1.1rem">
+      <i class="bi bi-geo-alt-fill"></i>
+    </div>
+    <div>
+      <h5 class="mb-0 fw-bold">{{ c[2] }}</h5>
+      <span class="text-muted-sm">{{ c[1] }} &middot; {{ c[3] }} wave{{ 's' if c[3] != 1 }} &middot; {{ c[4] }} files &middot; {{ c[5]|commas }} rows</span>
+    </div>
+  </div>
+  <div class="card-body pt-2">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Programme</th>
+          <th>Year</th>
+          <th>Phase</th>
+          <th class="text-end">Files</th>
+          <th class="text-end">Rows</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for w in waves_by_country.get(c[0], []) %}
+        <tr>
+          <td>
+            <span class="badge badge-recode
+              {% if w[2] == 'DHS' %}bg-primary-subtle text-primary
+              {% elif w[2] == 'MIS' %}bg-success-subtle text-success
+              {% else %}bg-secondary-subtle text-secondary{% endif %}">{{ w[2] }}</span>
+          </td>
+          <td class="fw-semibold">{{ w[3] }}</td>
+          <td class="text-muted">{{ w[4] or '—' }}</td>
+          <td class="text-end">{{ w[5] }}</td>
+          <td class="text-end">{{ w[6]|commas }}</td>
+          <td class="text-end">
+            <a href="/explore/wave/{{ w[0] }}" class="btn btn-sm btn-outline-primary py-0 px-2">
+              View <i class="bi bi-chevron-right"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

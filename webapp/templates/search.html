@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Search Variables — DHS Explorer{% endblock %}
+
+{% block content %}
+<h4 class="page-title mb-4"><i class="bi bi-search me-2"></i>Search Variables</h4>
+
+<div class="row mb-4">
+  <div class="col-lg-8">
+    <div class="input-group input-group-lg">
+      <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+      <input type="text" id="searchInput" class="form-control" placeholder="Search by variable name or label (e.g. education, v106, wealth)…" autofocus>
+    </div>
+    <div class="text-muted-sm mt-1">Searches across all loaded datasets. Minimum 2 characters.</div>
+  </div>
+</div>
+
+<div id="searchStatus" style="display:none" class="mb-3"></div>
+
+<div id="searchResults"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let debounce;
+document.getElementById('searchInput').addEventListener('input', function() {
+  clearTimeout(debounce);
+  const q = this.value.trim();
+  if (q.length < 2) {
+    document.getElementById('searchResults').innerHTML = '';
+    document.getElementById('searchStatus').style.display = 'none';
+    return;
+  }
+  debounce = setTimeout(() => doSearch(q), 300);
+});
+
+async function doSearch(q) {
+  const status = document.getElementById('searchStatus');
+  status.style.display = 'block';
+  status.innerHTML = '<div class="spinner-border spinner-border-sm text-primary me-2"></div>Searching…';
+
+  const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+  const data = await res.json();
+
+  status.innerHTML = `<span class="badge bg-primary-subtle text-primary">${data.count}</span> variables found for "<strong>${data.query}</strong>"`;
+
+  if (!data.results.length) {
+    document.getElementById('searchResults').innerHTML = '<p class="text-muted mt-3">No matching variables found.</p>';
+    return;
+  }
+
+  const grouped = {};
+  data.results.forEach(r => {
+    const key = `${r.country} ${r.program} ${r.year} — ${r.file_stem} (${r.recode_type})`;
+    if (!grouped[key]) grouped[key] = { file_id: r.file_id, items: [] };
+    grouped[key].items.push(r);
+  });
+
+  let html = '';
+  for (const [group, info] of Object.entries(grouped)) {
+    html += `<div class="card card-clean mb-3">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
+        <span class="fw-semibold small">${group}</span>
+        <a href="/explore/file/${info.file_id}" class="btn btn-sm btn-outline-primary py-0">
+          <i class="bi bi-box-arrow-up-right me-1"></i>Open File
+        </a>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-hover mb-0">
+          <thead><tr>
+            <th class="ps-3">Variable</th><th>Label</th><th>Type</th>
+          </tr></thead><tbody>`;
+    info.items.forEach(r => {
+      html += `<tr>
+        <td class="ps-3 font-monospace fw-semibold">${r.var_name}</td>
+        <td>${r.var_label || '<span class="text-muted">—</span>'}</td>
+        <td class="text-muted small">${r.pg_type || ''}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div></div>';
+  }
+
+  document.getElementById('searchResults').innerHTML = html;
+}
+</script>
+{% endblock %}

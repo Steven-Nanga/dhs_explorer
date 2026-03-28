@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — DHS Explorer{% endblock %}
+
+{% block content %}
+<h4 class="page-title mb-4">Dashboard</h4>
+
+<!-- Stat cards -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="card stat-card p-3">
+      <div class="d-flex align-items-center">
+        <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3">
+          <i class="bi bi-globe2"></i>
+        </div>
+        <div>
+          <div class="stat-value">{{ n_countries }}</div>
+          <div class="stat-label">Countries</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card stat-card p-3">
+      <div class="d-flex align-items-center">
+        <div class="stat-icon bg-success bg-opacity-10 text-success me-3">
+          <i class="bi bi-clipboard-data"></i>
+        </div>
+        <div>
+          <div class="stat-value">{{ n_waves }}</div>
+          <div class="stat-label">Survey Waves</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card stat-card p-3">
+      <div class="d-flex align-items-center">
+        <div class="stat-icon bg-warning bg-opacity-10 text-warning me-3">
+          <i class="bi bi-file-earmark-bar-graph"></i>
+        </div>
+        <div>
+          <div class="stat-value">{{ n_files }}</div>
+          <div class="stat-label">Data Files</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card stat-card p-3">
+      <div class="d-flex align-items-center">
+        <div class="stat-icon bg-info bg-opacity-10 text-info me-3">
+          <i class="bi bi-table"></i>
+        </div>
+        <div>
+          <div class="stat-value">{{ n_rows|commas }}</div>
+          <div class="stat-label">Total Rows</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Treemap + quick links -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-8">
+    <div class="card card-clean p-3">
+      <h6 class="fw-semibold mb-3">Data Volume by Survey</h6>
+      <div id="treemap" style="min-height:300px"></div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card card-clean p-3 h-100">
+      <h6 class="fw-semibold mb-3">Quick Links</h6>
+      <a href="/upload" class="btn btn-outline-primary w-100 mb-2">
+        <i class="bi bi-cloud-arrow-up me-1"></i> Upload New Data
+      </a>
+      <a href="/explore" class="btn btn-outline-secondary w-100 mb-2">
+        <i class="bi bi-folder2-open me-1"></i> Explore Surveys
+      </a>
+      <hr>
+      <p class="text-muted-sm mb-0">
+        Data loaded from <strong>{{ n_files }}</strong> DHS recode files
+        across <strong>{{ n_waves }}</strong> survey waves.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- Recent imports -->
+{% if batches %}
+<div class="table-wrap">
+  <div class="p-3 pb-0"><h6 class="fw-semibold">Recent Imports</h6></div>
+  <table class="table table-sm align-middle">
+    <thead>
+      <tr>
+        <th>Survey</th>
+        <th>Status</th>
+        <th class="text-end">Files</th>
+        <th class="text-end">Rows</th>
+        <th>Started</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in batches %}
+      <tr>
+        <td>{{ b[1] }} {{ b[2] }} {{ b[3] }}</td>
+        <td>
+          {% if b[4] == 'completed' %}
+            <span class="badge bg-success-subtle text-success">completed</span>
+          {% elif b[4] == 'running' %}
+            <span class="badge bg-warning-subtle text-warning">running</span>
+          {% else %}
+            <span class="badge bg-danger-subtle text-danger">{{ b[4] }}</span>
+          {% endif %}
+        </td>
+        <td class="text-end">{{ b[5] or 0 }}</td>
+        <td class="text-end">{{ (b[6] or 0)|commas }}</td>
+        <td class="text-muted-sm">{{ b[7].strftime('%Y-%m-%d %H:%M') if b[7] else '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const labels = {{ chart_labels|tojson }};
+const values = {{ chart_values|tojson }};
+const total  = values.reduce((a, b) => a + b, 0);
+
+const palette = [
+  '#6366f1','#8b5cf6','#3b82f6','#0ea5e9','#14b8a6','#10b981',
+  '#f59e0b','#ef4444','#ec4899','#a855f7',
+];
+
+function fmtK(v) {
+  if (v >= 1e6) return (v / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (v >= 1e3) return (v / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
+  return v;
+}
+
+/* Squarified treemap layout (Bruls, Huizing, van Wijk) */
+function squarify(items, x, y, w, h) {
+  if (!items.length) return [];
+  const rects = [];
+  const totalVal = items.reduce((s, d) => s + d.value, 0);
+  let remaining = [...items];
+  let cx = x, cy = y, cw = w, ch = h;
+
+  while (remaining.length) {
+    const isWide = cw >= ch;
+    const side = isWide ? ch : cw;
+    const areaLeft = remaining.reduce((s, d) => s + d.value, 0);
+    let row = [remaining[0]];
+    let rowArea = remaining[0].value / totalVal * w * h;
+    remaining = remaining.slice(1);
+
+    function worst(row) {
+      const rowVal = row.reduce((s, d) => s + d.value, 0);
+      const rowFrac = rowVal / areaLeft;
+      const rowSide = rowFrac * (isWide ? cw : ch);
+      let mx = 0;
+      for (const d of row) {
+        const frac = d.value / rowVal;
+        const s = frac * side;
+        const r = Math.max(rowSide / s, s / rowSide);
+        if (r > mx) mx = r;
+      }
+      return mx;
+    }
+
+    while (remaining.length) {
+      const cur = worst(row);
+      const trial = [...row, remaining[0]];
+      if (worst(trial) <= cur) {
+        row = trial;
+        remaining = remaining.slice(1);
+      } else break;
+    }
+
+    const rowVal = row.reduce((s, d) => s + d.value, 0);
+    const rowFrac = rowVal / areaLeft;
+    const rowSize = rowFrac * (isWide ? cw : ch);
+
+    let offset = 0;
+    for (const d of row) {
+      const frac = d.value / rowVal;
+      const span = frac * side;
+      if (isWide) {
+        rects.push({ ...d, x: cx, y: cy + offset, w: rowSize, h: span });
+      } else {
+        rects.push({ ...d, x: cx + offset, y: cy, w: span, h: rowSize });
+      }
+      offset += span;
+    }
+
+    if (isWide) { cx += rowSize; cw -= rowSize; }
+    else        { cy += rowSize; ch -= rowSize; }
+  }
+  return rects;
+}
+
+/* Build and render */
+const items = labels.map((l, i) => ({ label: l, value: values[i], color: palette[i % palette.length] }))
+  .sort((a, b) => b.value - a.value);
+
+const container = document.getElementById('treemap');
+const W = container.clientWidth;
+const H = 300;
+container.style.height = H + 'px';
+container.style.position = 'relative';
+
+const rects = squarify(items, 0, 0, W, H);
+
+rects.forEach(r => {
+  const pct = ((r.value / total) * 100).toFixed(1);
+  const div = document.createElement('div');
+  div.style.cssText = `
+    position:absolute;
+    left:${r.x}px; top:${r.y}px;
+    width:${r.w}px; height:${r.h}px;
+    background:${r.color};
+    border:2px solid #f1f5f9;
+    border-radius:8px;
+    overflow:hidden;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    color:#fff; text-align:center;
+    padding:6px;
+    cursor:default;
+    transition: filter .15s;
+  `;
+  div.onmouseenter = () => div.style.filter = 'brightness(1.15)';
+  div.onmouseleave = () => div.style.filter = '';
+
+  const big = r.w > 90 && r.h > 60;
+  const med = r.w > 60 && r.h > 44;
+  if (big) {
+    div.innerHTML = `
+      <div style="font-weight:700;font-size:1.15rem;line-height:1.1">${fmtK(r.value)}</div>
+      <div style="font-size:.75rem;opacity:.9;margin-top:2px">${r.label}</div>
+      <div style="font-size:.65rem;opacity:.7">${pct}%</div>`;
+  } else if (med) {
+    div.innerHTML = `
+      <div style="font-weight:700;font-size:.9rem">${fmtK(r.value)}</div>
+      <div style="font-size:.65rem;opacity:.85">${r.label}</div>`;
+  } else {
+    div.innerHTML = `<div style="font-weight:600;font-size:.7rem">${fmtK(r.value)}</div>`;
+    div.title = `${r.label}: ${r.value.toLocaleString()} rows (${pct}%)`;
+  }
+
+  container.appendChild(div);
+});
+</script>
+{% endblock %}

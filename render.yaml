@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: dhs-explorer
+    runtime: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn webapp.app:app -b 0.0.0.0:$PORT -w 2 --timeout 120"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dhs-db
+          property: connectionString
+      - key: DHS_SECRET
+        generateValue: true
+      - key: DHS_PASSWORD
+        value: admin
+      - key: DHS_DATA_DIR
+        value: /opt/render/project/src/data
+      - key: PYTHON_VERSION
+        value: "3.13.0"
+
+databases:
+  - name: dhs-db
+    plan: free
+    databaseName: dhs
+    user: dhs_user

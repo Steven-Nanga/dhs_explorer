@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ wave[1] }} {{ wave[3] }} {{ wave[4] }} — DHS Explorer{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb mb-3">
+  <a class="breadcrumb-item" href="/explore">Explore</a>
+  <span class="breadcrumb-item active">{{ wave[1] }} {{ wave[3] }} {{ wave[4] }}</span>
+</nav>
+
+<div class="d-flex align-items-center mb-4">
+  <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3">
+    <i class="bi bi-clipboard-data"></i>
+  </div>
+  <div>
+    <h4 class="page-title mb-0">{{ wave[1] }} — {{ wave[3] }} {{ wave[4] }}</h4>
+    <span class="text-muted-sm">Phase {{ wave[5] or 'N/A' }} &middot; {{ files|length }} file{{ 's' if files|length != 1 }}</span>
+  </div>
+  <div class="ms-auto">
+    <button class="btn btn-outline-danger btn-sm" onclick="deleteWave({{ wave[0] }}, '{{ wave[1] }} {{ wave[3] }} {{ wave[4] }}')">
+      <i class="bi bi-trash3 me-1"></i>Delete Wave
+    </button>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table class="table table-hover align-middle mb-0">
+    <thead>
+      <tr>
+        <th>Recode</th>
+        <th>Description</th>
+        <th>File Stem</th>
+        <th>Format</th>
+        <th class="text-end">Rows</th>
+        <th class="text-end">Columns</th>
+        <th>Storage</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in files %}
+      <tr>
+        <td>
+          <span class="badge badge-recode bg-primary-subtle text-primary">{{ f[1] }}</span>
+        </td>
+        <td>{{ recode_labels.get(f[1], f[1]) }}</td>
+        <td class="font-monospace small">{{ f[2] }}</td>
+        <td class="text-muted small">{{ f[3] }}</td>
+        <td class="text-end fw-semibold">{{ (f[4] or 0)|commas }}</td>
+        <td class="text-end">{{ f[5] or 0 }}</td>
+        <td class="small">
+          {% if f[6] and f[6] != 'microdata.observation' %}
+            <span class="text-success"><i class="bi bi-table me-1"></i>Wide table</span>
+          {% else %}
+            <span class="text-info"><i class="bi bi-braces me-1"></i>JSONB</span>
+          {% endif %}
+        </td>
+        <td class="text-end">
+          <a href="/explore/file/{{ f[0] }}" class="btn btn-sm btn-outline-primary py-0 px-2">
+            Details <i class="bi bi-chevron-right"></i>
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function deleteWave(waveId, label) {
+  if (!confirm(`Delete wave "${label}" and ALL its files and data? This cannot be undone.`)) return;
+  const res = await fetch(`/api/wave/${waveId}/delete`, {method:'POST'});
+  const data = await res.json();
+  if (data.ok) {
+    alert(`Deleted: ${data.deleted} (${data.files_removed} files removed)`);
+    location.href = '/explore';
+  } else {
+    alert('Error: ' + (data.error || 'Unknown'));
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,506 @@
+{% extends "base.html" %}
+{% block title %}{{ fi[2] }} — DHS Explorer{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb mb-3">
+  <a class="breadcrumb-item" href="/explore">Explore</a>
+  <a class="breadcrumb-item" href="/explore/wave/{{ fi[7] }}">{{ fi[8] }} {{ fi[9] }} {{ fi[10] }}</a>
+  <span class="breadcrumb-item active">{{ fi[2] }}</span>
+</nav>
+
+<!-- Header -->
+<div class="d-flex align-items-center mb-4">
+  <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3">
+    <i class="bi bi-file-earmark-bar-graph"></i>
+  </div>
+  <div>
+    <h4 class="page-title mb-0">{{ fi[2] }}
+      <span class="badge badge-recode bg-primary-subtle text-primary ms-1">{{ fi[1] }}</span>
+    </h4>
+    <span class="text-muted-sm">
+      {{ recode_labels.get(fi[1], fi[1]) }} &middot;
+      {{ (fi[4] or 0)|commas }} rows &middot;
+      {{ fi[5] or 0 }} columns &middot;
+      {{ fi[3] }} format
+    </span>
+  </div>
+  <div class="ms-auto">
+    <button class="btn btn-outline-danger btn-sm" onclick="deleteFile()">
+      <i class="bi bi-trash3 me-1"></i>Delete File
+    </button>
+  </div>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-3" id="fileTabs">
+  <li class="nav-item">
+    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabVars">
+      <i class="bi bi-list-columns-reverse me-1"></i>Variables <span class="badge bg-secondary ms-1">{{ variables|length }}</span>
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabPreview">
+      <i class="bi bi-eye me-1"></i>Data Preview
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabExport">
+      <i class="bi bi-download me-1"></i>Export &amp; API
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+  <!-- Variables tab -->
+  <div class="tab-pane fade show active" id="tabVars">
+    <div class="mb-3">
+      <input type="text" id="varSearch" class="form-control" placeholder="Search variables…" style="max-width:400px">
+    </div>
+    <div class="table-wrap">
+      <table class="table table-sm table-hover align-middle mb-0" id="varTable">
+        <thead>
+          <tr>
+            <th style="width:50px">#</th>
+            <th>Variable</th>
+            <th>Label</th>
+            <th>Stata Type</th>
+            <th>PG Type</th>
+            <th style="width:90px">Labels</th>
+            <th style="width:60px">Stats</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in variables %}
+          <tr class="var-row">
+            <td class="text-muted small">{{ v[4] }}</td>
+            <td class="font-monospace fw-semibold">{{ v[0] }}</td>
+            <td>{{ v[1] or '' }}</td>
+            <td class="text-muted small">{{ v[2] or '' }}</td>
+            <td class="small">{{ v[3] or '' }}{% if v[5] %} <span class="badge bg-warning-subtle text-warning" style="font-size:.65rem">overflow</span>{% endif %}</td>
+            <td>
+              {% if label_counts.get(v[0], 0) > 0 %}
+              <button class="btn btn-sm btn-outline-secondary py-0 px-2"
+                      onclick="showLabels({{ fi[0] }}, '{{ v[0] }}')">
+                {{ label_counts[v[0]] }} <i class="bi bi-tags"></i>
+              </button>
+              {% else %}
+              <span class="text-muted small">—</span>
+              {% endif %}
+            </td>
+            <td>
+              <button class="btn btn-sm btn-outline-primary py-0 px-2"
+                      onclick="showStats({{ fi[0] }}, '{{ v[0] }}')" title="View statistics">
+                <i class="bi bi-bar-chart-line"></i>
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Preview tab -->
+  <div class="tab-pane fade" id="tabPreview">
+    <div id="previewLoading" class="text-center py-4">
+      <div class="spinner-border spinner-border-sm text-primary me-2"></div>Loading preview…
+    </div>
+    <div id="previewContent" style="display:none"></div>
+    <p class="text-muted-sm mt-2">Showing first 50 rows, 25 columns. Coded values are replaced with their labels where available.</p>
+  </div>
+
+  <!-- Export & API tab -->
+  <div class="tab-pane fade" id="tabExport">
+    <div class="row g-4">
+      <!-- Column selector -->
+      <div class="col-lg-7">
+        <div class="card border-0 shadow-sm">
+          <div class="card-header bg-white d-flex align-items-center justify-content-between py-2">
+            <span class="fw-semibold"><i class="bi bi-layout-three-columns me-1"></i>Select Columns</span>
+            <span id="colCounter" class="badge bg-primary-subtle text-primary">0 / {{ variables|length }}</span>
+          </div>
+          <div class="card-body p-2">
+            <div class="d-flex gap-2 mb-2">
+              <input type="text" id="colSearch" class="form-control form-control-sm" placeholder="Search variables…">
+              <button class="btn btn-sm btn-outline-primary text-nowrap" onclick="toggleAllCols(true)">All</button>
+              <button class="btn btn-sm btn-outline-secondary text-nowrap" onclick="toggleAllCols(false)">None</button>
+            </div>
+            <div id="colList" style="max-height:360px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:4px 0"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Options & download -->
+      <div class="col-lg-5">
+        <div class="card border-0 shadow-sm mb-3">
+          <div class="card-header bg-white py-2">
+            <span class="fw-semibold"><i class="bi bi-gear me-1"></i>Options</span>
+          </div>
+          <div class="card-body">
+            <label class="form-label fw-semibold mb-1">Format</label>
+            <div class="d-flex gap-3 mb-3">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="dlFormat" id="fmtCsv" value="csv" checked>
+                <label class="form-check-label" for="fmtCsv"><i class="bi bi-filetype-csv me-1"></i>CSV</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="dlFormat" id="fmtXlsx" value="xlsx">
+                <label class="form-check-label" for="fmtXlsx"><i class="bi bi-file-earmark-excel me-1"></i>Excel</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="dlFormat" id="fmtJson" value="json">
+                <label class="form-check-label" for="fmtJson"><i class="bi bi-filetype-json me-1"></i>JSON</label>
+              </div>
+            </div>
+
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" id="optLabels" checked>
+              <label class="form-check-label" for="optLabels">Apply value labels</label>
+            </div>
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" id="optHeaders" checked>
+              <label class="form-check-label" for="optHeaders">Use labels as column headers</label>
+            </div>
+
+            <label class="form-label fw-semibold mb-1" for="optLimit">Row limit</label>
+            <input type="number" id="optLimit" class="form-control form-control-sm mb-1" placeholder="All rows" min="1">
+            <div class="text-muted-sm mb-3">Leave empty to download all rows</div>
+
+            <button class="btn btn-primary w-100" id="btnDownload" onclick="doDownload()">
+              <i class="bi bi-download me-1"></i>Download
+            </button>
+            <div id="dlStatus" class="text-muted-sm mt-2" style="display:none"></div>
+          </div>
+        </div>
+
+        <!-- API reference card -->
+        <div class="card border-0 shadow-sm">
+          <div class="card-header bg-white py-2">
+            <span class="fw-semibold"><i class="bi bi-code-slash me-1"></i>API Access</span>
+          </div>
+          <div class="card-body">
+            <p class="mb-2 small">Retrieve data programmatically:</p>
+            <div class="bg-dark text-light rounded p-3 mb-2" style="font-size:.78rem;font-family:monospace;overflow-x:auto;white-space:pre">GET /api/file/{{ fi[0] }}/data</div>
+            <table class="table table-sm small mb-2">
+              <thead><tr><th>Param</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="font-monospace text-nowrap">columns</td><td>Comma-separated variable names (omit for first 500)</td></tr>
+                <tr><td class="font-monospace text-nowrap">format</td><td><code>csv</code> | <code>xlsx</code> | <code>json</code></td></tr>
+                <tr><td class="font-monospace text-nowrap">labels</td><td>Apply value labels (<code>true</code>/<code>false</code>)</td></tr>
+                <tr><td class="font-monospace text-nowrap">header_labels</td><td>Use labels as headers (<code>true</code>/<code>false</code>)</td></tr>
+                <tr><td class="font-monospace text-nowrap">limit</td><td>Max rows to return</td></tr>
+                <tr><td class="font-monospace text-nowrap">offset</td><td>Skip first N rows</td></tr>
+              </tbody>
+            </table>
+            <p class="mb-1 small fw-semibold">Example</p>
+            <div id="apiExample" class="bg-dark text-light rounded p-3" style="font-size:.73rem;font-family:monospace;overflow-x:auto;word-break:break-all;white-space:pre-wrap"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Value-label modal -->
+<div class="modal fade" id="labelModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-semibold">Value Labels — <code id="labelVar"></code></h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="labelBody">
+        <div class="spinner-border spinner-border-sm"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Stats modal -->
+<div class="modal fade" id="statsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-semibold"><i class="bi bi-bar-chart-line me-1"></i>Variable Statistics — <code id="statsVar"></code></h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="statsBody">
+        <div class="text-center py-3"><div class="spinner-border spinner-border-sm"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Variable search
+document.getElementById('varSearch').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  document.querySelectorAll('#varTable .var-row').forEach(row => {
+    const text = row.textContent.toLowerCase();
+    row.style.display = text.includes(q) ? '' : 'none';
+  });
+});
+
+// Value labels modal
+const labelModal = new bootstrap.Modal(document.getElementById('labelModal'));
+async function showLabels(fileId, varName) {
+  document.getElementById('labelVar').textContent = varName;
+  document.getElementById('labelBody').innerHTML = '<div class="spinner-border spinner-border-sm"></div>';
+  labelModal.show();
+  const res = await fetch(`/api/file/${fileId}/labels/${varName}`);
+  const data = await res.json();
+  if (!data.labels || data.labels.length === 0) {
+    document.getElementById('labelBody').innerHTML = '<p class="text-muted">No labels found.</p>';
+    return;
+  }
+  let html = '<table class="table table-sm mb-0"><thead><tr><th>Code</th><th>Label</th></tr></thead><tbody>';
+  data.labels.forEach(l => { html += `<tr><td class="fw-semibold">${l.code}</td><td>${l.label}</td></tr>`; });
+  html += '</tbody></table>';
+  document.getElementById('labelBody').innerHTML = html;
+}
+
+const FILE_ID  = {{ fi[0] }};
+
+// ── Delete file ──────────────────────────────────────────────────
+async function deleteFile() {
+  if (!confirm('Delete this file and all its data? This cannot be undone.')) return;
+  const res = await fetch(`/api/file/${FILE_ID}/delete`, {method:'POST'});
+  const data = await res.json();
+  if (data.ok) {
+    alert('Deleted: ' + data.deleted);
+    location.href = '/explore/wave/{{ fi[7] }}';
+  } else {
+    alert('Error: ' + (data.error || 'Unknown'));
+  }
+}
+
+// ── Variable Stats modal ─────────────────────────────────────────
+const statsModal = new bootstrap.Modal(document.getElementById('statsModal'));
+async function showStats(fileId, varName) {
+  document.getElementById('statsVar').textContent = varName;
+  document.getElementById('statsBody').innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm"></div></div>';
+  statsModal.show();
+  const res = await fetch(`/api/file/${fileId}/stats/${varName}`);
+  const data = await res.json();
+  if (data.error) {
+    document.getElementById('statsBody').innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+    return;
+  }
+
+  let html = `<div class="mb-3">
+    <span class="badge ${data.type === 'numeric' ? 'bg-info-subtle text-info' : 'bg-success-subtle text-success'} me-2">${data.type}</span>
+    <span class="text-muted small">${data.var_label || ''}</span>
+  </div>`;
+
+  html += '<div class="row g-3 mb-3">';
+  html += _statCard('Valid', data.count?.toLocaleString() || '0', 'bi-check-circle', 'primary');
+  html += _statCard('Missing', `${(data.missing || 0).toLocaleString()} (${data.missing_pct || 0}%)`, 'bi-dash-circle', 'warning');
+
+  if (data.type === 'numeric') {
+    html += _statCard('Mean', data.mean != null ? data.mean.toLocaleString() : '—', 'bi-calculator', 'info');
+    html += _statCard('Std Dev', data.std != null ? data.std.toLocaleString() : '—', 'bi-distribute-vertical', 'secondary');
+    html += '</div><div class="row g-3 mb-3">';
+    html += _statCard('Min', data.min != null ? data.min.toLocaleString() : '—', 'bi-arrow-down', 'danger');
+    html += _statCard('P25', data.p25 != null ? data.p25.toLocaleString() : '—', 'bi-bar-chart-steps', 'secondary');
+    html += _statCard('Median', data.p50 != null ? data.p50.toLocaleString() : '—', 'bi-dash-lg', 'primary');
+    html += _statCard('P75', data.p75 != null ? data.p75.toLocaleString() : '—', 'bi-bar-chart-steps', 'secondary');
+    html += '</div><div class="row g-3 mb-3">';
+    html += _statCard('Max', data.max != null ? data.max.toLocaleString() : '—', 'bi-arrow-up', 'success');
+  }
+  html += '</div>';
+
+  if (data.frequency && data.frequency.length) {
+    const maxN = Math.max(...data.frequency.map(f => f.count));
+    html += `<h6 class="fw-semibold mt-3 mb-2">Top Values</h6>`;
+    html += '<div style="max-height:260px;overflow:auto"><table class="table table-sm table-hover mb-0">';
+    html += '<thead><tr><th>Value</th><th>Label</th><th class="text-end">Count</th><th class="text-end" style="width:60px">%</th><th style="width:35%"></th></tr></thead><tbody>';
+    data.frequency.forEach(f => {
+      const barW = (f.count / maxN * 100).toFixed(1);
+      const display = f.value === null ? '(null)' : f.value;
+      html += `<tr>
+        <td class="font-monospace small">${display}</td>
+        <td class="small">${f.label || ''}</td>
+        <td class="text-end fw-semibold">${f.count.toLocaleString()}</td>
+        <td class="text-end text-muted">${f.pct}%</td>
+        <td><div style="background:#6366f1;height:14px;border-radius:3px;width:${barW}%;opacity:.6"></div></td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+
+  document.getElementById('statsBody').innerHTML = html;
+}
+
+function _statCard(label, value, icon, color) {
+  return `<div class="col-6 col-md-3">
+    <div class="border rounded-3 p-2 text-center">
+      <i class="bi ${icon} text-${color} d-block mb-1" style="font-size:1.1rem"></i>
+      <div class="fw-bold" style="font-size:.95rem">${value}</div>
+      <div class="text-muted" style="font-size:.72rem">${label}</div>
+    </div>
+  </div>`;
+}
+
+// ── Export & API tab ──────────────────────────────────────────────
+const ALL_VARS = {{ vars_json|tojson }};
+const colChecked = new Set();
+
+(function buildColumnList() {
+  const wrap = document.getElementById('colList');
+  const frag = document.createDocumentFragment();
+  ALL_VARS.forEach((v, i) => {
+    const div = document.createElement('div');
+    div.className = 'col-item d-flex align-items-start px-2 py-1';
+    div.dataset.search = (v.name + ' ' + v.label).toLowerCase();
+    div.innerHTML =
+      `<input class="form-check-input mt-1 me-2 flex-shrink-0" type="checkbox" id="vc_${i}" data-var="${v.name}"` +
+      (i < 25 ? ' checked' : '') + `>` +
+      `<label for="vc_${i}" class="mb-0 small" style="line-height:1.3;cursor:pointer">` +
+      `<span class="fw-semibold">${v.name}</span>` +
+      (v.label ? `<br><span class="text-muted" style="font-size:.75rem">${v.label}</span>` : '') +
+      `</label>`;
+    frag.appendChild(div);
+    if (i < 25) colChecked.add(v.name);
+  });
+  wrap.appendChild(frag);
+  updateColCounter();
+  updateApiExample();
+})();
+
+document.getElementById('colList').addEventListener('change', e => {
+  if (e.target.type !== 'checkbox') return;
+  const v = e.target.dataset.var;
+  e.target.checked ? colChecked.add(v) : colChecked.delete(v);
+  updateColCounter();
+  updateApiExample();
+});
+
+document.getElementById('colSearch').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  document.querySelectorAll('#colList .col-item').forEach(d => {
+    d.style.display = d.dataset.search.includes(q) ? '' : 'none';
+  });
+});
+
+function toggleAllCols(on) {
+  document.querySelectorAll('#colList .col-item').forEach(d => {
+    if (d.style.display === 'none') return;
+    const cb = d.querySelector('input[type=checkbox]');
+    cb.checked = on;
+    on ? colChecked.add(cb.dataset.var) : colChecked.delete(cb.dataset.var);
+  });
+  updateColCounter();
+  updateApiExample();
+}
+
+function updateColCounter() {
+  document.getElementById('colCounter').textContent = `${colChecked.size} / ${ALL_VARS.length}`;
+  document.getElementById('btnDownload').disabled = colChecked.size === 0;
+}
+
+function updateApiExample() {
+  const cols = [...colChecked].slice(0, 5).join(',');
+  const more = colChecked.size > 5 ? ',…' : '';
+  const base = location.origin + `/api/file/${FILE_ID}/data`;
+  document.getElementById('apiExample').textContent =
+    `curl "${base}?columns=${cols}${more}&format=json&limit=100"`;
+}
+
+function doDownload() {
+  const fmt     = document.querySelector('input[name=dlFormat]:checked').value;
+  const labels  = document.getElementById('optLabels').checked;
+  const headers = document.getElementById('optHeaders').checked;
+  const limit   = document.getElementById('optLimit').value;
+
+  if (colChecked.size === 0) return alert('Select at least one column.');
+
+  const params = new URLSearchParams();
+  params.set('columns', [...colChecked].join(','));
+  params.set('format', fmt);
+  params.set('labels', labels);
+  params.set('header_labels', headers);
+  if (limit) params.set('limit', limit);
+
+  const url = `/api/file/${FILE_ID}/data?${params}`;
+
+  if (fmt === 'json') {
+    window.open(url, '_blank');
+    return;
+  }
+
+  const status = document.getElementById('dlStatus');
+  status.style.display = 'block';
+  status.textContent = 'Preparing download…';
+  const btn = document.getElementById('btnDownload');
+  btn.disabled = true;
+
+  fetch(url)
+    .then(r => {
+      if (!r.ok) throw new Error('Download failed');
+      return r.blob();
+    })
+    .then(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `{{ fi[2]|lower }}.${fmt}`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      status.textContent = 'Download complete.';
+    })
+    .catch(e => {
+      status.textContent = 'Error: ' + e.message;
+    })
+    .finally(() => {
+      btn.disabled = colChecked.size === 0;
+    });
+}
+
+['optLabels', 'optHeaders'].forEach(id =>
+  document.getElementById(id).addEventListener('change', updateApiExample)
+);
+document.querySelectorAll('input[name=dlFormat]').forEach(r =>
+  r.addEventListener('change', updateApiExample)
+);
+
+// Data preview — lazy load when tab is clicked
+let previewLoaded = false;
+document.querySelector('[data-bs-target="#tabPreview"]').addEventListener('shown.bs.tab', async () => {
+  if (previewLoaded) return;
+  previewLoaded = true;
+  const res = await fetch('/api/file/{{ fi[0] }}/preview');
+  const data = await res.json();
+  document.getElementById('previewLoading').style.display = 'none';
+  const wrap = document.getElementById('previewContent');
+  wrap.style.display = 'block';
+
+  if (!data.columns || data.columns.length === 0) {
+    wrap.innerHTML = '<p class="text-muted">No preview data available.</p>';
+    return;
+  }
+
+  let html = '<div class="preview-table-wrap"><table class="table table-sm table-bordered mb-0"><thead><tr>';
+  data.columns.forEach(c => {
+    const label = c.label || c.var;
+    const varName = c.var || '';
+    html += `<th class="text-nowrap" style="min-width:120px">`;
+    html += `<div style="font-weight:600;font-size:.82rem">${label}</div>`;
+    if (label !== varName) {
+      html += `<div style="font-size:.68rem;color:#94a3b8;font-family:monospace">${varName}</div>`;
+    }
+    html += `</th>`;
+  });
+  html += '</tr></thead><tbody>';
+  data.rows.forEach(row => {
+    html += '<tr>';
+    row.forEach(v => {
+      html += `<td class="text-nowrap small">${v === null ? '<span class=text-muted>—</span>' : v}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  wrap.innerHTML = html;
+});
+</script>
+{% endblock %}

@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Compare Waves — DHS Explorer{% endblock %}
+
+{% block content %}
+<h4 class="page-title mb-4"><i class="bi bi-arrow-left-right me-2"></i>Compare Survey Waves</h4>
+
+<div class="row g-4">
+  <!-- Controls -->
+  <div class="col-lg-4">
+    <div class="card card-clean p-3">
+      <h6 class="fw-semibold mb-3">1. Filter by Recode Type</h6>
+      <select id="recodeFilter" class="form-select mb-3" onchange="filterFiles()">
+        <option value="">All types</option>
+        {% for rt in recode_types %}
+        <option value="{{ rt }}">{{ rt }} — {{ recode_labels.get(rt, rt) }}</option>
+        {% endfor %}
+      </select>
+
+      <h6 class="fw-semibold mb-2">2. Select Files to Compare</h6>
+      <div class="text-muted-sm mb-2">Pick 2 or more files of the same recode type:</div>
+      <div id="fileList" style="max-height:320px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:4px 0">
+        {% for f in files %}
+        <div class="compare-file-item d-flex align-items-center px-2 py-1" data-recode="{{ f.recode }}" data-id="{{ f.id }}">
+          <input class="form-check-input me-2 flex-shrink-0" type="checkbox" value="{{ f.id }}" id="cf_{{ f.id }}" onchange="updateCompareBtn()">
+          <label for="cf_{{ f.id }}" class="mb-0 small" style="cursor:pointer">
+            <span class="fw-semibold">{{ f.stem }}</span>
+            <span class="text-muted"> — {{ f.country }} {{ f.program }} {{ f.year }}</span>
+            <span class="badge bg-primary-subtle text-primary ms-1" style="font-size:.65rem">{{ f.recode }}</span>
+          </label>
+        </div>
+        {% endfor %}
+      </div>
+
+      <button class="btn btn-primary w-100 mt-3" id="compareBtn" onclick="runCompare()" disabled>
+        <i class="bi bi-arrow-left-right me-1"></i>Compare
+      </button>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="col-lg-8">
+    <div id="compareArea">
+      <div class="card card-clean p-4 text-center text-muted">
+        <i class="bi bi-arrow-left-right" style="font-size:3rem;opacity:.3"></i>
+        <p class="mt-2 mb-0">Select 2+ files of the same recode type and click <strong>Compare</strong>.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterFiles() {
+  const rt = document.getElementById('recodeFilter').value;
+  document.querySelectorAll('.compare-file-item').forEach(d => {
+    const match = !rt || d.dataset.recode === rt;
+    d.style.display = match ? '' : 'none';
+    if (!match) d.querySelector('input').checked = false;
+  });
+  updateCompareBtn();
+}
+
+function getChecked() {
+  return [...document.querySelectorAll('.compare-file-item input:checked')].map(cb => cb.value);
+}
+
+function updateCompareBtn() {
+  document.getElementById('compareBtn').disabled = getChecked().length < 2;
+}
+
+async function runCompare() {
+  const ids = getChecked();
+  const area = document.getElementById('compareArea');
+  area.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>';
+
+  const res = await fetch(`/api/compare?file_ids=${ids.join(',')}`);
+  const data = await res.json();
+  if (data.error) { area.innerHTML = `<div class="alert alert-danger">${data.error}</div>`; return; }
+
+  renderComparison(data);
+}
+
+function renderComparison(data) {
+  const area = document.getElementById('compareArea');
+
+  let html = `<div class="card card-clean mb-3">
+    <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+      <span class="fw-semibold">Variable Comparison</span>
+      <div>
+        <span class="badge bg-primary-subtle text-primary me-2">${data.total} total variables</span>
+        <span class="badge bg-success-subtle text-success">${data.common} common</span>
+      </div>
+    </div>
+    <div class="card-body p-2">
+      <div class="d-flex gap-2 mb-2">
+        <input type="text" id="compareSearch" class="form-control form-control-sm" placeholder="Filter variables…" oninput="filterCompareRows()">
+        <select id="compareFilter" class="form-select form-select-sm" style="width:auto" onchange="filterCompareRows()">
+          <option value="all">All variables</option>
+          <option value="common">Common only</option>
+          <option value="diff">Differences only</option>
+        </select>
+      </div>
+    </div>
+    <div style="max-height:500px;overflow:auto">
+      <table class="table table-sm table-hover mb-0" id="compareTable">
+        <thead><tr>
+          <th class="ps-3 position-sticky top-0 bg-light" style="z-index:2">Variable</th>
+          <th class="position-sticky top-0 bg-light" style="z-index:2">Label</th>`;
+
+  data.files.forEach(f => {
+    html += `<th class="text-center position-sticky top-0 bg-light" style="z-index:2;min-width:90px">${f.label}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  data.variables.forEach(v => {
+    const cls = v.common ? 'compare-common' : 'compare-diff';
+    html += `<tr class="compare-row ${cls}" data-search="${v.name} ${v.label}".toLowerCase()>
+      <td class="ps-3 font-monospace fw-semibold small">${v.name}</td>
+      <td class="small">${v.label || '<span class="text-muted">—</span>'}</td>`;
+    v.presence.forEach(p => {
+      html += `<td class="text-center">${p
+        ? '<i class="bi bi-check-circle-fill text-success"></i>'
+        : '<i class="bi bi-x-circle text-danger" style="opacity:.3"></i>'
+      }</td>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div></div>';
+  area.innerHTML = html;
+}
+
+function filterCompareRows() {
+  const q = (document.getElementById('compareSearch').value || '').toLowerCase();
+  const mode = document.getElementById('compareFilter').value;
+  document.querySelectorAll('#compareTable .compare-row').forEach(row => {
+    const text = row.dataset.search || row.textContent.toLowerCase();
+    const isCommon = row.classList.contains('compare-common');
+    const matchText = !q || text.includes(q);
+    const matchMode = mode === 'all' || (mode === 'common' && isCommon) || (mode === 'diff' && !isCommon);
+    row.style.display = (matchText && matchMode) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

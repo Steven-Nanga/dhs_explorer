@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}Analysis — DHS Explorer{% endblock %}
+
+{% block content %}
+<h4 class="page-title mb-4"><i class="bi bi-calculator me-2"></i>Analysis</h4>
+
+<div class="row g-4">
+  <!-- Controls -->
+  <div class="col-lg-4">
+    <div class="card card-clean p-3">
+      <h6 class="fw-semibold mb-3">1. Select Dataset</h6>
+      <select id="fileSelect" class="form-select mb-3" onchange="loadVars()">
+        <option value="">Choose a file…</option>
+        {% for f in files %}
+        <option value="{{ f.id }}">{{ f.country }} {{ f.program }} {{ f.year }} — {{ f.stem }} ({{ f.recode }})</option>
+        {% endfor %}
+      </select>
+
+      <h6 class="fw-semibold mb-2">2. Analysis Type</h6>
+      <div class="d-flex gap-3 mb-3">
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="analysisType" id="typeFreq" value="frequency" checked onchange="toggleVars()">
+          <label class="form-check-label" for="typeFreq">Frequency</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="analysisType" id="typeCross" value="crosstab" onchange="toggleVars()">
+          <label class="form-check-label" for="typeCross">Cross-tab</label>
+        </div>
+      </div>
+
+      <h6 class="fw-semibold mb-2">3. Select Variable(s)</h6>
+      <div id="varControls" style="display:none">
+        <label class="form-label small fw-semibold">Variable</label>
+        <select id="varSelect" class="form-select form-select-sm mb-2"></select>
+
+        <div id="colVarWrap" style="display:none">
+          <label class="form-label small fw-semibold">Column Variable (cross-tab)</label>
+          <select id="colVarSelect" class="form-select form-select-sm mb-2"></select>
+        </div>
+
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="applyLabels" checked>
+          <label class="form-check-label small" for="applyLabels">Apply value labels</label>
+        </div>
+
+        <button class="btn btn-primary w-100" onclick="runAnalysis()">
+          <i class="bi bi-play-fill me-1"></i>Run Analysis
+        </button>
+      </div>
+      <div id="varLoading" style="display:none" class="text-center py-2">
+        <div class="spinner-border spinner-border-sm text-primary"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="col-lg-8">
+    <div id="resultArea">
+      <div class="card card-clean p-4 text-center text-muted">
+        <i class="bi bi-bar-chart" style="font-size:3rem;opacity:.3"></i>
+        <p class="mt-2 mb-0">Select a dataset and variable, then click <strong>Run Analysis</strong>.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allVars = [];
+
+async function loadVars() {
+  const fileId = document.getElementById('fileSelect').value;
+  if (!fileId) { document.getElementById('varControls').style.display = 'none'; return; }
+
+  document.getElementById('varControls').style.display = 'none';
+  document.getElementById('varLoading').style.display = 'block';
+
+  const res = await fetch(`/api/file/${fileId}/variables`);
+  const data = await res.json();
+  allVars = data.variables;
+
+  const html = allVars.map(v =>
+    `<option value="${v.name}">${v.name}${v.label ? ' — ' + v.label : ''}</option>`
+  ).join('');
+
+  document.getElementById('varSelect').innerHTML = html;
+  document.getElementById('colVarSelect').innerHTML = html;
+
+  document.getElementById('varLoading').style.display = 'none';
+  document.getElementById('varControls').style.display = 'block';
+}
+
+function toggleVars() {
+  const isCross = document.getElementById('typeCross').checked;
+  document.getElementById('colVarWrap').style.display = isCross ? '' : 'none';
+}
+
+async function runAnalysis() {
+  const fileId = document.getElementById('fileSelect').value;
+  const varName = document.getElementById('varSelect').value;
+  const labels = document.getElementById('applyLabels').checked;
+  const isCross = document.getElementById('typeCross').checked;
+
+  const area = document.getElementById('resultArea');
+  area.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>';
+
+  if (isCross) {
+    const colVar = document.getElementById('colVarSelect').value;
+    const res = await fetch(`/api/analysis/crosstab?file_id=${fileId}&row_var=${varName}&col_var=${colVar}&labels=${labels}`);
+    const data = await res.json();
+    if (data.error) { area.innerHTML = `<div class="alert alert-danger">${data.error}</div>`; return; }
+    renderCrosstab(data);
+  } else {
+    const res = await fetch(`/api/analysis/frequency?file_id=${fileId}&var=${varName}&labels=${labels}`);
+    const data = await res.json();
+    if (data.error) { area.innerHTML = `<div class="alert alert-danger">${data.error}</div>`; return; }
+    renderFrequency(data);
+  }
+}
+
+function renderFrequency(data) {
+  const area = document.getElementById('resultArea');
+  const maxCount = Math.max(...data.frequency.map(f => f.count));
+
+  let html = `<div class="card card-clean">
+    <div class="card-header bg-white py-2">
+      <span class="fw-semibold">Frequency Table — <code>${data.variable}</code></span>
+      <span class="badge bg-secondary ms-2">${data.total.toLocaleString()} total</span>
+    </div>
+    <div class="card-body p-0" style="max-height:500px;overflow:auto">
+      <table class="table table-sm table-hover mb-0">
+        <thead><tr><th class="ps-3">Value</th><th class="text-end">Count</th><th class="text-end" style="width:70px">%</th><th style="width:40%"></th></tr></thead>
+        <tbody>`;
+
+  data.frequency.forEach(f => {
+    const barW = (f.count / maxCount * 100).toFixed(1);
+    html += `<tr>
+      <td class="ps-3">${f.display}</td>
+      <td class="text-end fw-semibold">${f.count.toLocaleString()}</td>
+      <td class="text-end text-muted">${f.pct}%</td>
+      <td><div style="background:#6366f1;height:18px;border-radius:4px;width:${barW}%;opacity:.7"></div></td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div></div>';
+  area.innerHTML = html;
+}
+
+function renderCrosstab(data) {
+  const area = document.getElementById('resultArea');
+  let html = `<div class="card card-clean">
+    <div class="card-header bg-white py-2">
+      <span class="fw-semibold">Cross-tabulation — <code>${data.row_var}</code> × <code>${data.col_var}</code></span>
+      <span class="badge bg-secondary ms-2">${data.grand_total.toLocaleString()} total</span>
+    </div>
+    <div class="card-body p-0" style="overflow:auto;max-height:500px">
+      <table class="table table-sm table-bordered mb-0">
+        <thead><tr><th class="ps-3 bg-light">${data.row_var} ↓ / ${data.col_var} →</th>`;
+
+  data.col_labels.forEach(c => { html += `<th class="text-center bg-light">${c}</th>`; });
+  html += `<th class="text-center bg-warning-subtle fw-bold">Total</th></tr></thead><tbody>`;
+
+  data.rows.forEach(r => {
+    html += `<tr><td class="ps-3 fw-semibold bg-light">${r.label}</td>`;
+    r.cells.forEach((c, i) => {
+      const pct = data.col_totals[i] ? (c / data.col_totals[i] * 100).toFixed(1) : '0.0';
+      html += `<td class="text-center">${c.toLocaleString()} <span class="text-muted small">(${pct}%)</span></td>`;
+    });
+    html += `<td class="text-center fw-bold bg-warning-subtle">${r.total.toLocaleString()}</td></tr>`;
+  });
+
+  html += `<tr class="fw-bold bg-light"><td class="ps-3">Total</td>`;
+  data.col_totals.forEach(t => { html += `<td class="text-center">${t.toLocaleString()}</td>`; });
+  html += `<td class="text-center bg-warning-subtle">${data.grand_total.toLocaleString()}</td></tr>`;
+
+  html += '</tbody></table></div></div>';
+  area.innerHTML = html;
+}
+</script>
+{% endblock %}
