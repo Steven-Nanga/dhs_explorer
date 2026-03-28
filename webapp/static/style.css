@@ -190,6 +190,68 @@
 .preview-table-wrap td,
 .preview-table-wrap th { white-space: nowrap; }
 
+/* ── Page header (title + action button) ──────────────────────── */
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.page-header-actions {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+@media (max-width: 575.98px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .page-header-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+  .page-header-actions .btn {
+    width: 100%;
+  }
+}
+
+/* ── Scrollable tabs on mobile ────────────────────────────────── */
+.nav-tabs-scroll {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.nav-tabs-scroll::-webkit-scrollbar { display: none; }
+.nav-tabs-scroll .nav-item { flex-shrink: 0; }
+
+/* ── Responsive table wrapper for JS-generated tables ─────────── */
+.resp-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+.resp-table-wrap .table { margin-bottom: 0; }
+
+/* ── Users table mobile layout ────────────────────────────────── */
+@media (max-width: 767.98px) {
+  .user-actions-cell .btn-group {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .user-actions-cell .btn-group .btn {
+    border-radius: 4px !important;
+  }
+  .user-hide-mobile { display: none; }
+}
+
+/* ── Standalone page padding (login, request access) ──────────── */
+.standalone-page {
+  padding: 16px;
+}
+
 /* ── Misc ──────────────────────────────────────────────────────── */
 .page-title { font-weight: 700; color: #1e293b; }
 .text-muted-sm { font-size: .82rem; color: #64748b; }
@@ -197,4 +259,5 @@
 
 @media (max-width: 575.98px) {
   .page-title { font-size: 1.15rem; }
+  .container-fluid { padding-left: 12px; padding-right: 12px; }
 }

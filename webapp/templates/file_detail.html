@@ -9,15 +9,15 @@
 </nav>
 
 <!-- Header -->
-<div class="d-flex align-items-center mb-4">
-  <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3">
+<div class="page-header mb-4">
+  <div class="stat-icon bg-primary bg-opacity-10 text-primary flex-shrink-0">
     <i class="bi bi-file-earmark-bar-graph"></i>
   </div>
-  <div>
-    <h4 class="page-title mb-0">{{ fi[2] }}
+  <div class="min-w-0">
+    <h4 class="page-title mb-0 text-truncate">{{ fi[2] }}
       <span class="badge badge-recode bg-primary-subtle text-primary ms-1">{{ fi[1] }}</span>
     </h4>
-    <span class="text-muted-sm">
+    <span class="text-muted-sm" style="word-break:break-word">
       {{ recode_labels.get(fi[1], fi[1]) }} &middot;
       {{ (fi[4] or 0)|commas }} rows &middot;
       {{ fi[5] or 0 }} columns &middot;
@@ -25,7 +25,7 @@
     </span>
   </div>
   {% if current_user_role == 'admin' %}
-  <div class="ms-auto">
+  <div class="page-header-actions">
     <button class="btn btn-outline-danger btn-sm" onclick="deleteFile()">
       <i class="bi bi-trash3 me-1"></i>Delete File
     </button>
@@ -34,20 +34,20 @@
 </div>
 
 <!-- Tabs -->
-<ul class="nav nav-tabs mb-3" id="fileTabs">
+<ul class="nav nav-tabs nav-tabs-scroll mb-3" id="fileTabs">
   <li class="nav-item">
     <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabVars">
-      <i class="bi bi-list-columns-reverse me-1"></i>Variables <span class="badge bg-secondary ms-1">{{ variables|length }}</span>
+      <i class="bi bi-list-columns-reverse me-1"></i><span class="d-none d-sm-inline">Variables</span><span class="d-sm-none">Vars</span> <span class="badge bg-secondary ms-1">{{ variables|length }}</span>
     </button>
   </li>
   <li class="nav-item">
     <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabPreview">
-      <i class="bi bi-eye me-1"></i>Data Preview
+      <i class="bi bi-eye me-1"></i><span class="d-none d-sm-inline">Data </span>Preview
     </button>
   </li>
   <li class="nav-item">
     <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabExport">
-      <i class="bi bi-download me-1"></i>Export &amp; API
+      <i class="bi bi-download me-1"></i>Export<span class="d-none d-sm-inline"> &amp; API</span>
     </button>
   </li>
 </ul>
@@ -56,17 +56,17 @@
   <!-- Variables tab -->
   <div class="tab-pane fade show active" id="tabVars">
     <div class="mb-3">
-      <input type="text" id="varSearch" class="form-control" placeholder="Search variables…" style="max-width:400px">
+      <input type="text" id="varSearch" class="form-control" placeholder="Search variables…" style="max-width:min(400px, 100%)">
     </div>
     <div class="table-wrap">
       <table class="table table-sm table-hover align-middle mb-0" id="varTable">
         <thead>
           <tr>
-            <th style="width:50px">#</th>
+            <th style="width:50px" class="d-none d-md-table-cell">#</th>
             <th>Variable</th>
             <th>Label</th>
-            <th>Stata Type</th>
-            <th>PG Type</th>
+            <th class="d-none d-lg-table-cell">Stata Type</th>
+            <th class="d-none d-lg-table-cell">PG Type</th>
             <th style="width:90px">Labels</th>
             <th style="width:60px">Stats</th>
           </tr>
@@ -74,11 +74,11 @@
         <tbody>
           {% for v in variables %}
           <tr class="var-row">
-            <td class="text-muted small">{{ v[4] }}</td>
+            <td class="text-muted small d-none d-md-table-cell">{{ v[4] }}</td>
             <td class="font-monospace fw-semibold">{{ v[0] }}</td>
             <td>{{ v[1] or '' }}</td>
-            <td class="text-muted small">{{ v[2] or '' }}</td>
-            <td class="small">{{ v[3] or '' }}{% if v[5] %} <span class="badge bg-warning-subtle text-warning" style="font-size:.65rem">overflow</span>{% endif %}</td>
+            <td class="text-muted small d-none d-lg-table-cell">{{ v[2] or '' }}</td>
+            <td class="small d-none d-lg-table-cell">{{ v[3] or '' }}{% if v[5] %} <span class="badge bg-warning-subtle text-warning" style="font-size:.65rem">overflow</span>{% endif %}</td>
             <td>
               {% if label_counts.get(v[0], 0) > 0 %}
               <button class="btn btn-sm btn-outline-secondary py-0 px-2"
@@ -182,7 +182,7 @@
           </div>
           <div class="card-body">
             <p class="mb-2 small">Retrieve data programmatically:</p>
-            <div class="bg-dark text-light rounded p-3 mb-2" style="font-size:.78rem;font-family:monospace;overflow-x:auto;white-space:pre">GET /api/file/{{ fi[0] }}/data</div>
+            <div class="bg-dark text-light rounded p-3 mb-2" style="font-size:.78rem;font-family:monospace;overflow-x:auto;white-space:nowrap">GET /api/file/{{ fi[0] }}/data</div>
             <table class="table table-sm small mb-2">
               <thead><tr><th>Param</th><th>Description</th></tr></thead>
               <tbody>

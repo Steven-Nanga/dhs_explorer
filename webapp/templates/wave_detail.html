@@ -7,16 +7,16 @@
   <span class="breadcrumb-item active">{{ wave[1] }} {{ wave[3] }} {{ wave[4] }}</span>
 </nav>
 
-<div class="d-flex align-items-center mb-4">
-  <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3">
+<div class="page-header mb-4">
+  <div class="stat-icon bg-primary bg-opacity-10 text-primary flex-shrink-0">
     <i class="bi bi-clipboard-data"></i>
   </div>
-  <div>
-    <h4 class="page-title mb-0">{{ wave[1] }} — {{ wave[3] }} {{ wave[4] }}</h4>
+  <div class="min-w-0">
+    <h4 class="page-title mb-0 text-truncate">{{ wave[1] }} — {{ wave[3] }} {{ wave[4] }}</h4>
     <span class="text-muted-sm">Phase {{ wave[5] or 'N/A' }} &middot; {{ files|length }} file{{ 's' if files|length != 1 }}</span>
   </div>
   {% if current_user_role == 'admin' %}
-  <div class="ms-auto">
+  <div class="page-header-actions">
     <button class="btn btn-outline-danger btn-sm" onclick="deleteWave({{ wave[0] }}, '{{ wave[1] }} {{ wave[3] }} {{ wave[4] }}')">
       <i class="bi bi-trash3 me-1"></i>Delete Wave
     </button>
@@ -29,12 +29,12 @@
     <thead>
       <tr>
         <th>Recode</th>
-        <th>Description</th>
-        <th>File Stem</th>
-        <th>Format</th>
+        <th class="d-none d-md-table-cell">Description</th>
+        <th class="d-none d-lg-table-cell">File Stem</th>
+        <th class="d-none d-lg-table-cell">Format</th>
         <th class="text-end">Rows</th>
-        <th class="text-end">Columns</th>
-        <th>Storage</th>
+        <th class="text-end d-none d-sm-table-cell">Columns</th>
+        <th class="d-none d-md-table-cell">Storage</th>
         <th></th>
       </tr>
     </thead>
@@ -44,12 +44,12 @@
         <td>
           <span class="badge badge-recode bg-primary-subtle text-primary">{{ f[1] }}</span>
         </td>
-        <td>{{ recode_labels.get(f[1], f[1]) }}</td>
-        <td class="font-monospace small">{{ f[2] }}</td>
-        <td class="text-muted small">{{ f[3] }}</td>
+        <td class="d-none d-md-table-cell">{{ recode_labels.get(f[1], f[1]) }}</td>
+        <td class="font-monospace small d-none d-lg-table-cell">{{ f[2] }}</td>
+        <td class="text-muted small d-none d-lg-table-cell">{{ f[3] }}</td>
         <td class="text-end fw-semibold">{{ (f[4] or 0)|commas }}</td>
-        <td class="text-end">{{ f[5] or 0 }}</td>
-        <td class="small">
+        <td class="text-end d-none d-sm-table-cell">{{ f[5] or 0 }}</td>
+        <td class="small d-none d-md-table-cell">
           {% if f[6] and f[6] != 'microdata.observation' %}
             <span class="text-success"><i class="bi bi-table me-1"></i>Wide table</span>
           {% else %}
@@ -58,7 +58,7 @@
         </td>
         <td class="text-end">
           <a href="/explore/file/{{ f[0] }}" class="btn btn-sm btn-outline-primary py-0 px-2">
-            Details <i class="bi bi-chevron-right"></i>
+            <span class="d-none d-sm-inline">Details </span><i class="bi bi-chevron-right"></i>
           </a>
         </td>
       </tr>

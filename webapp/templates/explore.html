@@ -14,22 +14,22 @@
 
 {% for c in countries %}
 <div class="card card-clean mb-4">
-  <div class="card-header bg-white border-0 pt-3 px-3 pb-0 d-flex align-items-center">
-    <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3" style="width:42px;height:42px;font-size:1.1rem">
+  <div class="card-header bg-white border-0 pt-3 px-3 pb-0 d-flex align-items-center flex-wrap gap-2">
+    <div class="stat-icon bg-primary bg-opacity-10 text-primary me-2 flex-shrink-0" style="width:42px;height:42px;font-size:1.1rem">
       <i class="bi bi-geo-alt-fill"></i>
     </div>
-    <div>
-      <h5 class="mb-0 fw-bold">{{ c[2] }}</h5>
-      <span class="text-muted-sm">{{ c[1] }} &middot; {{ c[3] }} wave{{ 's' if c[3] != 1 }} &middot; {{ c[4] }} files &middot; {{ c[5]|commas }} rows</span>
+    <div class="min-w-0">
+      <h5 class="mb-0 fw-bold text-truncate">{{ c[2] }}</h5>
+      <span class="text-muted-sm" style="word-break:break-word">{{ c[1] }} &middot; {{ c[3] }} wave{{ 's' if c[3] != 1 }} &middot; {{ c[4] }} files &middot; {{ c[5]|commas }} rows</span>
     </div>
   </div>
-  <div class="card-body pt-2">
+  <div class="card-body pt-2" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
     <table class="table table-sm table-hover align-middle mb-0">
       <thead>
         <tr>
           <th>Programme</th>
           <th>Year</th>
-          <th>Phase</th>
+          <th class="d-none d-sm-table-cell">Phase</th>
           <th class="text-end">Files</th>
           <th class="text-end">Rows</th>
           <th></th>
@@ -45,12 +45,12 @@
               {% else %}bg-secondary-subtle text-secondary{% endif %}">{{ w[2] }}</span>
           </td>
           <td class="fw-semibold">{{ w[3] }}</td>
-          <td class="text-muted">{{ w[4] or '—' }}</td>
+          <td class="text-muted d-none d-sm-table-cell">{{ w[4] or '—' }}</td>
           <td class="text-end">{{ w[5] }}</td>
           <td class="text-end">{{ w[6]|commas }}</td>
           <td class="text-end">
             <a href="/explore/wave/{{ w[0] }}" class="btn btn-sm btn-outline-primary py-0 px-2">
-              View <i class="bi bi-chevron-right"></i>
+              <span class="d-none d-sm-inline">View </span><i class="bi bi-chevron-right"></i>
             </a>
           </td>
         </tr>

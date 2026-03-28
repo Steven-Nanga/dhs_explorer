@@ -124,13 +124,13 @@ function renderFrequency(data) {
   const maxCount = Math.max(...data.frequency.map(f => f.count));
 
   let html = `<div class="card card-clean">
-    <div class="card-header bg-white py-2">
+    <div class="card-header bg-white py-2 d-flex flex-wrap gap-2 align-items-center">
       <span class="fw-semibold">Frequency Table — <code>${data.variable}</code></span>
-      <span class="badge bg-secondary ms-2">${data.total.toLocaleString()} total</span>
+      <span class="badge bg-secondary">${data.total.toLocaleString()} total</span>
     </div>
-    <div class="card-body p-0" style="max-height:500px;overflow:auto">
+    <div class="card-body p-0" style="max-height:500px;overflow:auto;-webkit-overflow-scrolling:touch">
       <table class="table table-sm table-hover mb-0">
-        <thead><tr><th class="ps-3">Value</th><th class="text-end">Count</th><th class="text-end" style="width:70px">%</th><th style="width:40%"></th></tr></thead>
+        <thead><tr><th class="ps-3">Value</th><th class="text-end">Count</th><th class="text-end" style="width:70px">%</th><th class="d-none d-sm-table-cell" style="width:40%"></th></tr></thead>
         <tbody>`;
 
   data.frequency.forEach(f => {
@@ -139,7 +139,7 @@ function renderFrequency(data) {
       <td class="ps-3">${f.display}</td>
       <td class="text-end fw-semibold">${f.count.toLocaleString()}</td>
       <td class="text-end text-muted">${f.pct}%</td>
-      <td><div style="background:#6366f1;height:18px;border-radius:4px;width:${barW}%;opacity:.7"></div></td>
+      <td class="d-none d-sm-table-cell"><div style="background:#6366f1;height:18px;border-radius:4px;width:${barW}%;opacity:.7"></div></td>
     </tr>`;
   });
 
@@ -150,12 +150,12 @@ function renderFrequency(data) {
 function renderCrosstab(data) {
   const area = document.getElementById('resultArea');
   let html = `<div class="card card-clean">
-    <div class="card-header bg-white py-2">
-      <span class="fw-semibold">Cross-tabulation — <code>${data.row_var}</code> × <code>${data.col_var}</code></span>
-      <span class="badge bg-secondary ms-2">${data.grand_total.toLocaleString()} total</span>
+    <div class="card-header bg-white py-2 d-flex flex-wrap gap-2 align-items-center">
+      <span class="fw-semibold">Cross-tab — <code>${data.row_var}</code> × <code>${data.col_var}</code></span>
+      <span class="badge bg-secondary">${data.grand_total.toLocaleString()} total</span>
     </div>
-    <div class="card-body p-0" style="overflow:auto;max-height:500px">
-      <table class="table table-sm table-bordered mb-0">
+    <div class="card-body p-0" style="overflow:auto;max-height:500px;-webkit-overflow-scrolling:touch">
+      <table class="table table-sm table-bordered mb-0" style="width:max-content;min-width:100%">
         <thead><tr><th class="ps-3 bg-light">${data.row_var} ↓ / ${data.col_var} →</th>`;
 
   data.col_labels.forEach(c => { html += `<th class="text-center bg-light">${c}</th>`; });

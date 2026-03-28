@@ -85,28 +85,28 @@ function renderComparison(data) {
   const area = document.getElementById('compareArea');
 
   let html = `<div class="card card-clean mb-3">
-    <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+    <div class="card-header bg-white py-2 d-flex flex-wrap gap-2 justify-content-between align-items-center">
       <span class="fw-semibold">Variable Comparison</span>
-      <div>
-        <span class="badge bg-primary-subtle text-primary me-2">${data.total} total variables</span>
+      <div class="d-flex flex-wrap gap-1">
+        <span class="badge bg-primary-subtle text-primary">${data.total} total</span>
         <span class="badge bg-success-subtle text-success">${data.common} common</span>
       </div>
     </div>
     <div class="card-body p-2">
-      <div class="d-flex gap-2 mb-2">
-        <input type="text" id="compareSearch" class="form-control form-control-sm" placeholder="Filter variables…" oninput="filterCompareRows()">
-        <select id="compareFilter" class="form-select form-select-sm" style="width:auto" onchange="filterCompareRows()">
-          <option value="all">All variables</option>
-          <option value="common">Common only</option>
-          <option value="diff">Differences only</option>
+      <div class="d-flex flex-wrap gap-2 mb-2">
+        <input type="text" id="compareSearch" class="form-control form-control-sm" style="min-width:120px;flex:1" placeholder="Filter variables…" oninput="filterCompareRows()">
+        <select id="compareFilter" class="form-select form-select-sm" style="width:auto;flex-shrink:0" onchange="filterCompareRows()">
+          <option value="all">All</option>
+          <option value="common">Common</option>
+          <option value="diff">Differences</option>
         </select>
       </div>
     </div>
-    <div style="max-height:500px;overflow:auto">
-      <table class="table table-sm table-hover mb-0" id="compareTable">
+    <div style="max-height:500px;overflow:auto;-webkit-overflow-scrolling:touch">
+      <table class="table table-sm table-hover mb-0" id="compareTable" style="width:max-content;min-width:100%">
         <thead><tr>
           <th class="ps-3 position-sticky top-0 bg-light" style="z-index:2">Variable</th>
-          <th class="position-sticky top-0 bg-light" style="z-index:2">Label</th>`;
+          <th class="position-sticky top-0 bg-light d-none d-md-table-cell" style="z-index:2">Label</th>`;
 
   data.files.forEach(f => {
     html += `<th class="text-center position-sticky top-0 bg-light" style="z-index:2;min-width:90px">${f.label}</th>`;
@@ -115,9 +115,9 @@ function renderComparison(data) {
 
   data.variables.forEach(v => {
     const cls = v.common ? 'compare-common' : 'compare-diff';
-    html += `<tr class="compare-row ${cls}" data-search="${v.name} ${v.label}".toLowerCase()>
-      <td class="ps-3 font-monospace fw-semibold small">${v.name}</td>
-      <td class="small">${v.label || '<span class="text-muted">—</span>'}</td>`;
+    html += `<tr class="compare-row ${cls}" data-search="${(v.name + ' ' + (v.label||'')).toLowerCase()}">
+      <td class="ps-3 font-monospace fw-semibold small text-nowrap">${v.name}</td>
+      <td class="small d-none d-md-table-cell">${v.label || '<span class="text-muted">—</span>'}</td>`;
     v.presence.forEach(p => {
       html += `<td class="text-center">${p
         ? '<i class="bi bi-check-circle-fill text-success"></i>'

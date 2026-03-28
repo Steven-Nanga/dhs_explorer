@@ -2,11 +2,11 @@
 {% block title %}Manage Users — DHS Explorer{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center mb-4">
-  <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3">
+<div class="page-header mb-4">
+  <div class="stat-icon bg-primary bg-opacity-10 text-primary flex-shrink-0">
     <i class="bi bi-people-fill"></i>
   </div>
-  <div>
+  <div class="min-w-0">
     <h4 class="page-title mb-0">Manage Users</h4>
     <span class="text-muted-sm">Approve requests, generate login links, manage access</span>
   </div>
@@ -27,8 +27,8 @@
         <th>User</th>
         <th>Role</th>
         <th>Status</th>
-        <th>Joined</th>
-        <th>Last Login</th>
+        <th class="d-none d-md-table-cell">Joined</th>
+        <th class="d-none d-lg-table-cell">Last Login</th>
         <th class="text-end">Actions</th>
       </tr>
     </thead>
@@ -54,9 +54,9 @@
             {% else %}bg-secondary-subtle text-secondary{% endif %}
           " id="status-{{ u[0] }}">{{ u[4]|title }}</span>
         </td>
-        <td class="small text-muted">{{ u[5].strftime('%d %b %Y') if u[5] else '—' }}</td>
-        <td class="small text-muted">{{ u[6].strftime('%d %b %Y %H:%M') if u[6] else '—' }}</td>
-        <td class="text-end">
+        <td class="small text-muted d-none d-md-table-cell">{{ u[5].strftime('%d %b %Y') if u[5] else '—' }}</td>
+        <td class="small text-muted d-none d-lg-table-cell">{{ u[6].strftime('%d %b %Y %H:%M') if u[6] else '—' }}</td>
+        <td class="text-end user-actions-cell">
           <div class="btn-group btn-group-sm" id="actions-{{ u[0] }}">
             {% if u[4] == 'pending' %}
               <button class="btn btn-outline-success" onclick="approveUser({{ u[0] }}, '{{ u[2] or u[1] }}')" title="Approve">
