@@ -160,16 +160,21 @@ def create_app():
                         else:
                             error = "This email is disabled. Contact the administrator."
                     else:
+                        token = secrets.token_urlsafe(48)
+                        expires = datetime.now(timezone.utc) + timedelta(days=7)
                         cur.execute("""
-                            INSERT INTO catalog.app_user (email, display_name, role, status)
-                            VALUES (%s, %s, 'viewer', 'pending')
-                        """, (email, name))
+                            INSERT INTO catalog.app_user
+                                (email, display_name, role, status, login_token, token_expires)
+                            VALUES (%s, %s, 'viewer', 'approved', %s, %s)
+                        """, (email, name, token, expires))
                         success = True
                 conn.commit()
                 conn.close()
 
                 if success:
-                    from webapp.email import send_access_notification
+                    link = f"{request.host_url.rstrip('/')}/magic/{token}"
+                    from webapp.email import send_magic_link, send_access_notification
+                    send_magic_link(email, name, link, expires.isoformat())
                     manage_url = f"{request.host_url.rstrip('/')}/users"
                     send_access_notification(admin_email, name, email, manage_url)
 
