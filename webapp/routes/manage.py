@@ -1,17 +1,23 @@
-"""Data management: delete files and waves."""
+"""Data management: delete files and waves (admin only)."""
 
 import logging
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, abort, jsonify, session
 from webapp.db import get_db, validate_table
 
 bp = Blueprint("manage", __name__)
 logger = logging.getLogger(__name__)
 
 
+def _require_admin():
+    if session.get("role") != "admin":
+        abort(403)
+
+
 @bp.route("/api/file/<int:file_id>/delete", methods=["POST"])
 def delete_file(file_id):
     """Delete a single survey file and all its associated data."""
+    _require_admin()
     db = get_db()
     with db.cursor() as cur:
         cur.execute("""
@@ -56,6 +62,7 @@ def delete_file(file_id):
 @bp.route("/api/wave/<int:wave_id>/delete", methods=["POST"])
 def delete_wave(wave_id):
     """Delete a survey wave and ALL its files and data."""
+    _require_admin()
     db = get_db()
     with db.cursor() as cur:
         cur.execute("""

@@ -1,5 +1,5 @@
 import os
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, abort, jsonify, render_template, request, session
 from werkzeug.utils import secure_filename
 
 from loader import config
@@ -8,13 +8,20 @@ from webapp.jobs import jobs, start_job
 bp = Blueprint("upload", __name__)
 
 
+def _require_admin():
+    if session.get("role") != "admin":
+        abort(403)
+
+
 @bp.route("/upload")
 def upload_page():
+    _require_admin()
     return render_template("upload.html", jobs=jobs)
 
 
 @bp.route("/api/upload", methods=["POST"])
 def api_upload():
+    _require_admin()
     if "file" not in request.files:
         return jsonify(error="No file provided"), 400
     f = request.files["file"]

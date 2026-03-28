@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}Manage Users — DHS Explorer{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+  <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3">
+    <i class="bi bi-people-fill"></i>
+  </div>
+  <div>
+    <h4 class="page-title mb-0">Manage Users</h4>
+    <span class="text-muted-sm">Approve requests, generate login links, manage access</span>
+  </div>
+</div>
+
+{% set pending = users | selectattr(4, 'equalto', 'pending') | list %}
+{% if pending %}
+<div class="alert alert-warning d-flex align-items-center py-2 mb-4">
+  <i class="bi bi-bell-fill me-2 fs-5"></i>
+  <span>{{ pending|length }} pending access request{{ 's' if pending|length != 1 }} awaiting review.</span>
+</div>
+{% endif %}
+
+<div class="table-wrap">
+  <table class="table table-hover align-middle mb-0" id="usersTable">
+    <thead>
+      <tr>
+        <th>User</th>
+        <th>Role</th>
+        <th>Status</th>
+        <th>Joined</th>
+        <th>Last Login</th>
+        <th class="text-end">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr id="user-row-{{ u[0] }}" data-status="{{ u[4] }}">
+        <td>
+          <div class="fw-semibold">{{ u[2] or u[1] }}</div>
+          <div class="text-muted small">{{ u[1] }}</div>
+        </td>
+        <td>
+          {% if u[3] == 'admin' %}
+            <span class="badge bg-danger-subtle text-danger">Admin</span>
+          {% else %}
+            <span class="badge bg-primary-subtle text-primary">Viewer</span>
+          {% endif %}
+        </td>
+        <td>
+          <span class="badge
+            {% if u[4] == 'pending' %}bg-warning-subtle text-warning
+            {% elif u[4] == 'approved' %}bg-success-subtle text-success
+            {% elif u[4] == 'rejected' %}bg-danger-subtle text-danger
+            {% else %}bg-secondary-subtle text-secondary{% endif %}
+          " id="status-{{ u[0] }}">{{ u[4]|title }}</span>
+        </td>
+        <td class="small text-muted">{{ u[5].strftime('%d %b %Y') if u[5] else '—' }}</td>
+        <td class="small text-muted">{{ u[6].strftime('%d %b %Y %H:%M') if u[6] else '—' }}</td>
+        <td class="text-end">
+          <div class="btn-group btn-group-sm" id="actions-{{ u[0] }}">
+            {% if u[4] == 'pending' %}
+              <button class="btn btn-outline-success" onclick="approveUser({{ u[0] }}, '{{ u[2] or u[1] }}')" title="Approve">
+                <i class="bi bi-check-lg"></i>
+              </button>
+              <button class="btn btn-outline-danger" onclick="rejectUser({{ u[0] }})" title="Reject">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            {% elif u[4] == 'approved' and u[3] != 'admin' %}
+              <button class="btn btn-outline-primary" onclick="newLink({{ u[0] }})" title="Generate login link">
+                <i class="bi bi-link-45deg"></i>
+              </button>
+              <button class="btn btn-outline-secondary" onclick="setPassword({{ u[0] }})" title="Set password">
+                <i class="bi bi-key"></i>
+              </button>
+              <button class="btn btn-outline-warning" onclick="disableUser({{ u[0] }})" title="Disable">
+                <i class="bi bi-pause-circle"></i>
+              </button>
+            {% elif u[4] == 'disabled' %}
+              <button class="btn btn-outline-success" onclick="enableUser({{ u[0] }})" title="Re-enable">
+                <i class="bi bi-play-circle"></i>
+              </button>
+            {% elif u[4] == 'rejected' %}
+              <button class="btn btn-outline-success" onclick="approveUser({{ u[0] }}, '{{ u[2] or u[1] }}')" title="Approve instead">
+                <i class="bi bi-check-lg"></i>
+              </button>
+            {% endif %}
+            {% if u[3] != 'admin' %}
+              <button class="btn btn-outline-danger" onclick="deleteUser({{ u[0] }}, '{{ u[2] or u[1] }}')" title="Delete">
+                <i class="bi bi-trash3"></i>
+              </button>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Magic link modal -->
+<div class="modal fade" id="linkModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-semibold"><i class="bi bi-link-45deg me-1"></i>Magic Login Link</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted mb-2">Send this link to the user. It is single-use and expires in 7 days.</p>
+        <div class="input-group mb-2">
+          <input type="text" class="form-control font-monospace small" id="magicLinkInput" readonly>
+          <button class="btn btn-outline-primary" onclick="copyLink()">
+            <i class="bi bi-clipboard"></i>
+          </button>
+        </div>
+        <div id="copyStatus" class="small text-success" style="display:none">
+          <i class="bi bi-check2 me-1"></i>Copied to clipboard!
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const linkModal = new bootstrap.Modal(document.getElementById('linkModal'));
+
+async function approveUser(id, name) {
+  const res = await fetch(`/api/users/${id}/approve`, {method:'POST'});
+  const data = await res.json();
+  if (data.ok) {
+    document.getElementById('magicLinkInput').value = data.magic_link;
+    linkModal.show();
+    setTimeout(() => location.reload(), 0);
+  } else {
+    alert('Error: ' + (data.error || 'Unknown'));
+  }
+}
+
+async function rejectUser(id) {
+  if (!confirm('Reject this access request?')) return;
+  const res = await fetch(`/api/users/${id}/reject`, {method:'POST'});
+  const data = await res.json();
+  if (data.ok) location.reload();
+  else alert('Error: ' + (data.error || 'Unknown'));
+}
+
+async function disableUser(id) {
+  if (!confirm('Disable this user? They will no longer be able to log in.')) return;
+  const res = await fetch(`/api/users/${id}/disable`, {method:'POST'});
+  const data = await res.json();
+  if (data.ok) location.reload();
+  else alert('Error: ' + (data.error || 'Unknown'));
+}
+
+async function enableUser(id) {
+  const res = await fetch(`/api/users/${id}/enable`, {method:'POST'});
+  const data = await res.json();
+  if (data.ok) location.reload();
+  else alert('Error: ' + (data.error || 'Unknown'));
+}
+
+async function newLink(id) {
+  const res = await fetch(`/api/users/${id}/new-link`, {method:'POST'});
+  const data = await res.json();
+  if (data.ok) {
+    document.getElementById('magicLinkInput').value = data.magic_link;
+    linkModal.show();
+  } else {
+    alert('Error: ' + (data.error || 'Unknown'));
+  }
+}
+
+async function setPassword(id) {
+  const pw = prompt('Set a password for this user (min 4 characters):');
+  if (!pw) return;
+  const res = await fetch(`/api/users/${id}/set-password`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({password: pw})
+  });
+  const data = await res.json();
+  if (data.ok) alert('Password set. The user can now log in with email + password.');
+  else alert('Error: ' + (data.error || 'Unknown'));
+}
+
+async function deleteUser(id, name) {
+  if (!confirm(`Permanently delete user "${name}"?`)) return;
+  const res = await fetch(`/api/users/${id}/delete`, {method:'POST'});
+  const data = await res.json();
+  if (data.ok) location.reload();
+  else alert('Error: ' + (data.error || 'Unknown'));
+}
+
+function copyLink() {
+  const input = document.getElementById('magicLinkInput');
+  navigator.clipboard.writeText(input.value);
+  const s = document.getElementById('copyStatus');
+  s.style.display = 'block';
+  setTimeout(() => s.style.display = 'none', 2000);
+}
+</script>
+{% endblock %}

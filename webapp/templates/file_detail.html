@@ -24,11 +24,13 @@
       {{ fi[3] }} format
     </span>
   </div>
+  {% if current_user_role == 'admin' %}
   <div class="ms-auto">
     <button class="btn btn-outline-danger btn-sm" onclick="deleteFile()">
       <i class="bi bi-trash3 me-1"></i>Delete File
     </button>
   </div>
+  {% endif %}
 </div>
 
 <!-- Tabs -->

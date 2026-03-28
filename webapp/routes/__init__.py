@@ -8,6 +8,7 @@ from .analysis import bp as analysis_bp
 from .compare import bp as compare_bp
 from .data_api import bp as data_api_bp
 from .manage import bp as manage_bp
+from .users import bp as users_bp
 
 
 def register_all(app):
@@ -20,5 +21,6 @@ def register_all(app):
         compare_bp,
         data_api_bp,
         manage_bp,
+        users_bp,
     ):
         app.register_blueprint(blueprint)
