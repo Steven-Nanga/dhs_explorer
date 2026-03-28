@@ -9,6 +9,7 @@ from flask import Blueprint, abort, jsonify, render_template, request, session
 
 from webapp.db import get_db
 from webapp.email import send_magic_link
+from webapp.url_helpers import public_base_url
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,8 @@ def approve_user(user_id):
         """, (token, expires, user_id))
     db.commit()
 
-    link = f"{request.host_url.rstrip('/')}/magic/{token}"
+    base = public_base_url(request)
+    link = f"{base}/magic/{token}"
     email_sent = send_magic_link(user[1], user[2] or user[1], link, expires.isoformat())
 
     return jsonify(ok=True, email=user[1], magic_link=link,
@@ -125,7 +127,8 @@ def new_magic_link(user_id):
         """, (token, expires, user_id))
     db.commit()
 
-    link = f"{request.host_url.rstrip('/')}/magic/{token}"
+    base = public_base_url(request)
+    link = f"{base}/magic/{token}"
     email_sent = send_magic_link(user[1], user[2] or user[1], link, expires.isoformat())
 
     return jsonify(ok=True, email=user[1], magic_link=link,

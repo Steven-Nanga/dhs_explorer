@@ -4,16 +4,22 @@ import logging
 import os
 import secrets
 import sys
+import threading
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
 from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from webapp.db import close_db
+from webapp.email import is_configured as smtp_is_configured
+from webapp.url_helpers import public_base_url
 
 
 def create_app():
     app = Flask(__name__)
+    # Render / nginx: trust X-Forwarded-Proto and Host so request.url_root is correct
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
     app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024
     app.secret_key = os.environ.get("DHS_SECRET", "dhs-dev-key-change-in-prod")
 
@@ -172,13 +178,34 @@ def create_app():
                 conn.close()
 
                 if success:
-                    link = f"{request.host_url.rstrip('/')}/magic/{token}"
-                    from webapp.email import send_magic_link, send_access_notification
-                    send_magic_link(email, name, link, expires.isoformat())
-                    manage_url = f"{request.host_url.rstrip('/')}/users"
-                    send_access_notification(admin_email, name, email, manage_url)
+                    base = public_base_url(request)
+                    link = f"{base}/magic/{token}"
+                    manage_url = f"{base}/users"
+                    expires_iso = expires.isoformat()
 
-        return render_template("request_access.html", success=success, error=error)
+                    def _send_access_emails():
+                        from webapp.email import send_magic_link, send_access_notification
+                        try:
+                            u_ok = send_magic_link(email, name, link, expires_iso)
+                            a_ok = send_access_notification(admin_email, name, email, manage_url)
+                            logging.getLogger(__name__).info(
+                                "Access emails for %s: magic_link=%s admin_notify=%s",
+                                email, u_ok, a_ok,
+                            )
+                        except Exception:
+                            logging.getLogger(__name__).exception(
+                                "Failed to send access emails for %s", email,
+                            )
+
+                    # Send in background so the browser gets a fast response; SMTP still runs immediately
+                    threading.Thread(target=_send_access_emails, daemon=True).start()
+
+        return render_template(
+            "request_access.html",
+            success=success,
+            error=error,
+            smtp_configured=smtp_is_configured(),
+        )
 
     @app.route("/logout")
     def logout():

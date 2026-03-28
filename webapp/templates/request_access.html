@@ -29,8 +29,11 @@
     {% if success %}
     <div class="alert alert-success py-2">
       <i class="bi bi-check-circle me-1"></i>
-      Access granted! A login link has been sent to your email. Check your inbox (and spam folder).
+      Access granted! {% if smtp_configured %}A login link is being sent to your email now — check your inbox and spam folder within a few minutes.{% else %}Your account is ready. The server is not configured to send email — ask the administrator for your login link.{% endif %}
     </div>
+    {% if smtp_configured %}
+    <p class="small text-muted mb-0">Didn’t get it? Wait 1–2 minutes, then check Spam / Promotions. The link expires in 7 days.</p>
+    {% endif %}
     <div class="text-center mt-2">
       <a href="/login" class="btn btn-outline-primary btn-sm">
         <i class="bi bi-arrow-left me-1"></i>Back to Login

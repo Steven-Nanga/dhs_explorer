@@ -10,13 +10,19 @@ logger = logging.getLogger(__name__)
 
 SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
-SMTP_USER = os.environ.get("SMTP_USER", "")
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
-SMTP_FROM = os.environ.get("SMTP_FROM", "") or SMTP_USER
+
+
+def _smtp_creds():
+    """Read credentials at call time (env may load after import). Strip spaces from Gmail app passwords."""
+    user = os.environ.get("SMTP_USER", "").strip()
+    pw = os.environ.get("SMTP_PASSWORD", "").replace(" ", "").strip()
+    from_addr = os.environ.get("SMTP_FROM", "").strip() or user
+    return user, pw, from_addr
 
 
 def is_configured():
-    return bool(SMTP_USER and SMTP_PASSWORD)
+    u, p, _ = _smtp_creds()
+    return bool(u and p)
 
 
 def send_magic_link(to_email: str, to_name: str, magic_link: str, expires: str):
@@ -87,22 +93,23 @@ def send_access_notification(admin_email: str, requester_name: str, requester_em
 
 
 def _send(to: str, subject: str, html: str, plain: str) -> bool:
-    if not is_configured():
+    smtp_user, smtp_pw, from_addr = _smtp_creds()
+    if not smtp_user or not smtp_pw:
         logger.warning("Email not configured (SMTP_USER / SMTP_PASSWORD not set). Skipping send to %s", to)
         return False
 
     msg = MIMEMultipart("alternative")
-    msg["From"] = SMTP_FROM
+    msg["From"] = from_addr
     msg["To"] = to
     msg["Subject"] = subject
     msg.attach(MIMEText(plain, "plain"))
     msg.attach(MIMEText(html, "html"))
 
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as server:
             server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(SMTP_FROM, [to], msg.as_string())
+            server.login(smtp_user, smtp_pw)
+            server.sendmail(from_addr, [to], msg.as_string())
         logger.info("Email sent to %s: %s", to, subject)
         return True
     except Exception:

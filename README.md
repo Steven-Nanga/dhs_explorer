@@ -56,6 +56,7 @@ Set environment variables (or create a `.env` file):
 | `SMTP_USER` | *(none)* | SMTP username (e.g. Gmail address) |
 | `SMTP_PASSWORD` | *(none)* | SMTP password or app password |
 | `SMTP_FROM` | *(same as SMTP_USER)* | Sender email address |
+| `PUBLIC_BASE_URL` | *(auto from request)* | Public site URL for links in emails (set on Render, e.g. `https://your-app.onrender.com`) |
 
 ### 4. Load Data (CLI)
 
