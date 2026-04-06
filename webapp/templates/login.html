@@ -23,7 +23,7 @@
         <i class="bi bi-database-fill"></i>
       </div>
       <h4 class="fw-bold mb-1">DHS Explorer</h4>
-      <p class="text-muted small mb-0">Sign in with your email and password</p>
+      <p class="text-muted small mb-0">Administrator sign-in — upload data and manage the catalog</p>
     </div>
 
     {% if error %}
@@ -51,14 +51,16 @@
     </form>
 
     <div class="text-center mt-3">
-      <a href="/request-access" class="small text-decoration-none">
-        <i class="bi bi-person-plus me-1"></i>Request Access
+      <a href="/" class="small text-decoration-none">
+        <i class="bi bi-house me-1"></i>Back to public explorer
       </a>
+      <span class="text-muted px-1">&middot;</span>
+      <a href="/request-access" class="small text-decoration-none">About access</a>
     </div>
 
     <p class="text-muted text-center small mt-3 mb-0">
-      Sign in with your email and password,
-      <br>or use a magic link if you received one.
+      The explorer is open to everyone without an account.
+      <br>Use admin email and password, or an admin magic link if your account has one.
     </p>
   </div>
 </body>

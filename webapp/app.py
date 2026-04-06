@@ -2,18 +2,31 @@
 
 import logging
 import os
-import secrets
 import sys
-import threading
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import bcrypt
-from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from webapp.db import close_db
-from webapp.email import is_configured as smtp_is_configured
-from webapp.url_helpers import public_base_url
+
+# Pages and APIs that require an authenticated admin (session or API token).
+ADMIN_ENDPOINTS = frozenset({
+    "upload.upload_page",
+    "upload.api_upload",
+    "upload.api_job",
+    "users.manage_users",
+    "users.approve_user",
+    "users.reject_user",
+    "users.disable_user",
+    "users.enable_user",
+    "users.new_magic_link",
+    "users.set_password",
+    "users.delete_user",
+    "manage.delete_file",
+    "manage.delete_wave",
+})
 
 
 def create_app():
@@ -87,15 +100,24 @@ def create_app():
                 user = cur.fetchone()
 
                 if user and user[5] and bcrypt.checkpw(password.encode(), user[5].encode()):
-                    cur.execute("UPDATE catalog.app_user SET last_login_at = NOW() WHERE id = %s", (user[0],))
-                    conn.commit()
-                    conn.close()
-                    session["auth"] = True
-                    session["user_id"] = user[0]
-                    session["user_email"] = user[1]
-                    session["user_name"] = user[2]
-                    session["role"] = user[3]
-                    return redirect(url_for("dashboard.dashboard"))
+                    if user[3] != "admin":
+                        error = (
+                            "Only administrators sign in here. "
+                            "The data explorer is open to everyone without an account."
+                        )
+                    else:
+                        cur.execute(
+                            "UPDATE catalog.app_user SET last_login_at = NOW() WHERE id = %s",
+                            (user[0],),
+                        )
+                        conn.commit()
+                        conn.close()
+                        session["auth"] = True
+                        session["user_id"] = user[0]
+                        session["user_email"] = user[1]
+                        session["user_name"] = user[2]
+                        session["role"] = user[3]
+                        return redirect(url_for("dashboard.dashboard"))
                 else:
                     error = "Invalid email or password."
             conn.close()
@@ -123,6 +145,15 @@ def create_app():
                 conn.close()
                 return render_template("login.html", error="This link has expired. Please request a new one.")
 
+            if user[3] != "admin":
+                conn.close()
+                flash(
+                    "This site is open to everyone — you do not need an account to explore data. "
+                    "The sign-in page is only for administrators.",
+                    "info",
+                )
+                return redirect(url_for("dashboard.dashboard"))
+
             cur.execute("""
                 UPDATE catalog.app_user
                 SET login_token = NULL, token_expires = NULL, last_login_at = NOW()
@@ -138,79 +169,15 @@ def create_app():
             session["role"] = user[3]
             return redirect(url_for("dashboard.dashboard"))
 
-    @app.route("/request-access", methods=["GET", "POST"])
+    @app.route("/request-access")
     def request_access():
-        success = False
-        error = None
-        if request.method == "POST":
-            email = (request.form.get("email") or "").strip().lower()
-            name = (request.form.get("name") or "").strip()
-            reason = (request.form.get("reason") or "").strip()
-
-            if not email or not name:
-                error = "Name and email are required."
-            else:
-                from webapp.db import connect
-                conn = connect()
-                with conn.cursor() as cur:
-                    cur.execute("SELECT id, status FROM catalog.app_user WHERE LOWER(email) = %s", (email,))
-                    existing = cur.fetchone()
-                    if existing:
-                        st = existing[1]
-                        if st == "approved":
-                            error = "This email already has access. Use the login page."
-                        elif st == "pending":
-                            error = "A request for this email is already pending."
-                        elif st == "rejected":
-                            error = "This email has been rejected. Contact the administrator."
-                        else:
-                            error = "This email is disabled. Contact the administrator."
-                    else:
-                        token = secrets.token_urlsafe(48)
-                        expires = datetime.now(timezone.utc) + timedelta(days=7)
-                        cur.execute("""
-                            INSERT INTO catalog.app_user
-                                (email, display_name, role, status, login_token, token_expires)
-                            VALUES (%s, %s, 'viewer', 'approved', %s, %s)
-                        """, (email, name, token, expires))
-                        success = True
-                conn.commit()
-                conn.close()
-
-                if success:
-                    base = public_base_url(request)
-                    link = f"{base}/magic/{token}"
-                    manage_url = f"{base}/users"
-                    expires_iso = expires.isoformat()
-
-                    def _send_access_emails():
-                        from webapp.email import send_magic_link, send_access_notification
-                        try:
-                            u_ok = send_magic_link(email, name, link, expires_iso)
-                            a_ok = send_access_notification(admin_email, name, email, manage_url)
-                            logging.getLogger(__name__).info(
-                                "Access emails for %s: magic_link=%s admin_notify=%s",
-                                email, u_ok, a_ok,
-                            )
-                        except Exception:
-                            logging.getLogger(__name__).exception(
-                                "Failed to send access emails for %s", email,
-                            )
-
-                    # Send in background so the browser gets a fast response; SMTP still runs immediately
-                    threading.Thread(target=_send_access_emails, daemon=True).start()
-
-        return render_template(
-            "request_access.html",
-            success=success,
-            error=error,
-            smtp_configured=smtp_is_configured(),
-        )
+        """Public explorer needs no account; kept as a short FAQ for anyone expecting a signup flow."""
+        return render_template("request_access.html")
 
     @app.route("/logout")
     def logout():
         session.clear()
-        return redirect(url_for("login"))
+        return redirect(url_for("dashboard.dashboard"))
 
     # ── Auth guard ────────────────────────────────────────────────
     @app.before_request
@@ -218,12 +185,18 @@ def create_app():
         open_endpoints = {"login", "logout", "request_access", "magic_login", "static"}
         if request.endpoint in open_endpoints:
             return
-        if request.path.startswith("/api/"):
-            if not _api_auth_ok():
-                return jsonify(error="Unauthorized. Pass ?token= or X-API-Token header."), 401
+        if request.endpoint is None:
             return
-        if not session.get("auth"):
-            return redirect(url_for("login"))
+        if request.endpoint in ADMIN_ENDPOINTS:
+            if request.path.startswith("/api/"):
+                if not _admin_api_ok():
+                    return jsonify(
+                        error="Unauthorized. Admin session or ?token= / X-API-Token required.",
+                    ), 401
+                return
+            if session.get("role") != "admin":
+                return redirect(url_for("login"))
+            return
 
     # ── Register blueprints ───────────────────────────────────────
     from webapp.routes import register_all
@@ -232,28 +205,14 @@ def create_app():
     return app
 
 
-def _api_auth_ok():
-    """Check API auth via session or token header/param."""
-    if session.get("auth"):
+def _admin_api_ok():
+    """Admin JSON/API access: signed-in admin or shared admin password token."""
+    if session.get("role") == "admin":
         return True
-    from webapp.db import connect
     token = request.args.get("token") or request.headers.get("X-API-Token")
     if not token:
         return False
-    conn = connect()
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT id, role FROM catalog.app_user
-            WHERE password_hash IS NOT NULL AND status = 'approved'
-        """)
-        for uid, role in cur.fetchall():
-            if role == "admin":
-                admin_pw = os.environ.get("DHS_PASSWORD", "admin")
-                if token == admin_pw:
-                    conn.close()
-                    return True
-    conn.close()
-    return False
+    return token == os.environ.get("DHS_PASSWORD", "admin")
 
 
 def _setup_logging(app):
