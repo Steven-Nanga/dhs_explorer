@@ -54,6 +54,47 @@ const countryFilter = document.getElementById('countryFilter');
 const recodeFilter = document.getElementById('recodeFilter');
 const yearFilter = document.getElementById('yearFilter');
 const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+
+// Load all available filter options on page load
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadAllFilterOptions();
+});
+
+async function loadAllFilterOptions() {
+  try {
+    // Load countries
+    const countriesRes = await fetch('/api/search/filters/countries');
+    if (countriesRes.ok) {
+      const data = await countriesRes.json();
+      const countries = data.countries || [];
+      if (countries.length > 0) {
+        setOptions(countryFilter, countries, 'All countries');
+      }
+    }
+    // Load recodes
+    const recodesRes = await fetch('/api/search/filters/recodes');
+    if (recodesRes.ok) {
+      const data = await recodesRes.json();
+      const recodes = data.recodes || [];
+      if (recodes.length > 0) {
+        setOptions(recodeFilter, recodes, 'All recodes');
+      }
+    }
+    // Load years
+    const yearsRes = await fetch('/api/search/filters/years');
+    if (yearsRes.ok) {
+      const data = await yearsRes.json();
+      const years = data.years || [];
+      if (years.length > 0) {
+        setOptions(yearFilter, years, 'All years');
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load filter options:', error);
+    // Keep default empty options
+  }
+}
+
 searchInput.addEventListener('input', function() {
   clearTimeout(debounce);
   const q = this.value.trim();
@@ -62,6 +103,8 @@ searchInput.addEventListener('input', function() {
     document.getElementById('searchStatus').style.display = 'none';
     latestResults = [];
     resetFilterOptions();
+    // After clearing, reload all filter options
+    loadAllFilterOptions();
     return;
   }
   debounce = setTimeout(() => doSearch(q), 300);

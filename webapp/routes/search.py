@@ -61,3 +61,49 @@ def api_search():
         count=len(results),
         applied_filters={"country": country, "recode": recode, "year": year},
     )
+
+
+@bp.route("/api/search/filters/countries")
+def api_filter_countries():
+    """Return all distinct countries with loaded data."""
+    db = get_db()
+    with db.cursor() as cur:
+        cur.execute("""
+            SELECT DISTINCT c.name
+            FROM catalog.survey_wave sw
+            JOIN catalog.country c ON c.id = sw.country_id
+            ORDER BY c.name
+        """)
+        rows = cur.fetchall()
+    countries = [r[0] for r in rows]
+    return jsonify(countries=countries)
+
+
+@bp.route("/api/search/filters/recodes")
+def api_filter_recodes():
+    """Return all distinct recode types with loaded data."""
+    db = get_db()
+    with db.cursor() as cur:
+        cur.execute("""
+            SELECT DISTINCT recode_type
+            FROM catalog.survey_file
+            ORDER BY recode_type
+        """)
+        rows = cur.fetchall()
+    recodes = [r[0] for r in rows]
+    return jsonify(recodes=recodes)
+
+
+@bp.route("/api/search/filters/years")
+def api_filter_years():
+    """Return all distinct survey years with loaded data."""
+    db = get_db()
+    with db.cursor() as cur:
+        cur.execute("""
+            SELECT DISTINCT year_label
+            FROM catalog.survey_wave
+            ORDER BY year_label DESC
+        """)
+        rows = cur.fetchall()
+    years = [r[0] for r in rows]
+    return jsonify(years=years)
