@@ -95,16 +95,13 @@ Place ZIPs in `./data/` and use the Upload page or CLI.
 ```
 
 ## Screenshots
+Below is a screenshot of the app dashboard. More images can be added to `webapp/static/screenshots/` and will appear here once committed.
 
 ![Dashboard screenshot](webapp/static/screenshots/dashboard.PNG)
 ![Screenshot 1](webapp/static/screenshots/dashboard1.PNG)
 ![Screenshot 2](webapp/static/screenshots/dashboard2.PNG)
 ![Screenshot 3](webapp/static/screenshots/dashboard3.PNG)
 ![Screenshot 4](webapp/static/screenshots/dashboard4.PNG)
-
-Below is a screenshot of the app dashboard. More images can be added to `webapp/static/screenshots/` and will appear here once committed.
-
-![Dashboard screenshot](webapp/static/screenshots/dashboard.PNG)
 
 ## Project structure (high level)
 
