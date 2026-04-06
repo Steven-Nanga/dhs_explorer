@@ -94,9 +94,7 @@ Place ZIPs in `./data/` and use the Upload page or CLI.
 ![Dashboard screenshot](webapp/static/screenshots/dashboard.png)
 ```
 
-If you don't yet have screenshots, the `webapp/static/screenshots/` folder is a good place to add them; the README will show them once committed.
-
-### Screenshots
+## Screenshots
 
 ![Dashboard screenshot](webapp/static/screenshots/dashboard.PNG)
 
