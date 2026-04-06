@@ -125,19 +125,39 @@ async function runAnalysis() {
     if (isCross) {
       const colVar = document.getElementById('colVarSelect').value;
       const res = await fetch(`/api/analysis/crosstab?file_id=${fileId}&row_var=${encodeURIComponent(varName)}&col_var=${encodeURIComponent(colVar)}&labels=${labels}`);
-      if (!res.ok) throw new Error('Request failed');
-      const data = await res.json();
-      if (data.error) { area.innerHTML = `<div class="alert alert-danger">${data.error}</div>`; return; }
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (_err) {
+        data = null;
+      }
+      if (!res.ok) {
+        const message = data?.error || `${res.status} ${res.statusText}`;
+        area.innerHTML = `<div class="alert alert-danger mb-0">Analysis failed: ${message}</div>`;
+        return;
+      }
+      if (data?.error) { area.innerHTML = `<div class="alert alert-danger">${data.error}</div>`; return; }
       renderCrosstab(data);
     } else {
       const res = await fetch(`/api/analysis/frequency?file_id=${fileId}&var=${encodeURIComponent(varName)}&labels=${labels}`);
-      if (!res.ok) throw new Error('Request failed');
-      const data = await res.json();
-      if (data.error) { area.innerHTML = `<div class="alert alert-danger">${data.error}</div>`; return; }
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (_err) {
+        data = null;
+      }
+      if (!res.ok) {
+        const message = data?.error || `${res.status} ${res.statusText}`;
+        area.innerHTML = `<div class="alert alert-danger mb-0">Analysis failed: ${message}</div>`;
+        return;
+      }
+      if (data?.error) { area.innerHTML = `<div class="alert alert-danger">${data.error}</div>`; return; }
       renderFrequency(data);
     }
   } catch (e) {
-    area.innerHTML = '<div class="alert alert-danger mb-0">Something went wrong while running the analysis. Check your connection and try again.</div>';
+    area.innerHTML = `<div class="alert alert-danger mb-0">Something went wrong while running the analysis: ${e.message}</div>`;
   }
 }
 
