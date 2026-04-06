@@ -96,6 +96,12 @@ Place ZIPs in `./data/` and use the Upload page or CLI.
 
 If you don't yet have screenshots, the `webapp/static/screenshots/` folder is a good place to add them; the README will show them once committed.
 
+### Screenshots
+
+Below is a screenshot of the app dashboard. More images can be added to `webapp/static/screenshots/` and will appear here once committed.
+
+![Dashboard screenshot](webapp/static/screenshots/dashboard.PNG)
+
 ## Project structure (high level)
 
 - `loader/` — ETL pipeline and CLI
