@@ -98,6 +98,8 @@ If you don't yet have screenshots, the `webapp/static/screenshots/` folder is a 
 
 ### Screenshots
 
+![Dashboard screenshot](webapp/static/screenshots/dashboard.PNG)
+
 Below is a screenshot of the app dashboard. More images can be added to `webapp/static/screenshots/` and will appear here once committed.
 
 ![Dashboard screenshot](webapp/static/screenshots/dashboard.PNG)
