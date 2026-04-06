@@ -85,9 +85,8 @@ Place ZIPs in `./data/` and use the Upload page or CLI.
 
 ## Demo and screenshots
 
-- Live demo: replace the placeholder below with your deployed URL (e.g. Render):
 
-- Live Demo: https://your-app.onrender.com
+- Live demo: https://dhs-explorer.onrender.com/
 
 - Screenshots: add images to `webapp/static/screenshots/` (create the folder if needed) and reference them here. Example markdown to embed an image:
 
