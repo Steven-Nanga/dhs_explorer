@@ -84,219 +84,123 @@ Already-loaded files are skipped; only missing recodes are ingested.
 python run_web.py
 ```
 
-Open http://localhost:5000 and log in with the admin email and password.
+# DHS Data Explorer
 
-## Authentication
+A focused toolkit for loading, cleaning, exploring, and exporting Demographic and Health Survey (DHS) microdata. The project combines a robust ETL loader with a Flask web UI and a small REST API to make DHS microdata usable for analysis.
 
-The app supports two user roles:
+**What's in this README**
+- Problem: common DHS data cleaning challenges
+- Solution: what this project provides
+- Quick start: run locally or in Docker
+- Demo & screenshots: how to link or add images
 
-| Role | Capabilities |
-|---|---|
-| **Admin** | Full access: upload data, delete files/waves, manage users, view all data |
-| **Viewer** | Read-only: explore data, search variables, run analysis, export data |
+## Problem — why DHS data cleaning is hard
 
-### Login Methods
+- DHS microdata comes as many recode files (Stata `.dta`) packaged in ZIPs with inconsistent naming and variable conventions across countries and years.
+- Variables are frequently renamed, recoded, or moved between recodes (e.g. HR/IR/PR), so matching the same concept across waves is non-trivial.
+- Value labels are stored separately from numeric values and must be applied to produce human-readable outputs.
+- Large surveys produce wide tables that can exceed free cloud-tier storage limits; loading must be resumable and idempotent.
+- Analysts need consistent variable dictionaries, searchable metadata, and repeatable exports to avoid manual, error-prone cleaning.
 
-- **Email + Password** — Admin users and viewers with a set password.
-- **Magic Link** — One-time login URLs sent via email, valid for 7 days.
+## Solution — what this project offers
 
-### Access Requests
+- Automated discovery and extraction of DHS ZIP recode files with metadata parsing (variable dictionaries and value labels).
+- A catalog layer to register surveys, files, and import batches so ingestion is auditable and resumable.
+- Bulk-loading logic that creates dynamic wide tables for core recodes and stores auxiliary recodes as JSONB when appropriate.
+- Value-label decoding during export and analysis so frequency tables and cross-tabs show readable labels.
+- A searchable variable dictionary, wave-comparison tools, and lightweight analysis endpoints to reduce manual cleaning work.
 
-New users can request access at `/request-access`. Requests are auto-approved and a magic login link is emailed immediately. An admin notification email is also sent. Admins can later disable or delete users from the Manage Users page.
+## Key features
 
-### Email Setup (Gmail)
+- Loader: CLI to discover and ingest DHS ZIP files
+- Web UI: dashboard, variable search, wave comparison, upload/delete
+- API: export CSV/Excel/JSON with optional label application
+- Auth: admin/viewer roles, magic links, password login
+- Deployable to Docker, Render + Neon (Postgres)
 
-To enable email notifications:
+## Quick start (local)
 
-1. Go to your Google Account → Security → 2-Step Verification → App passwords
-2. Generate an app password for "Mail"
-3. Set `SMTP_USER` to your Gmail address and `SMTP_PASSWORD` to the app password
+### Prerequisites
 
-If SMTP is not configured, magic links are displayed in the admin UI for manual sharing.
+- Python 3.11+
+- PostgreSQL 14+
 
-## Docker (local)
+### Install
+
+```bash
+pip install -r requirements.txt
+```
+
+### Configure
+
+Set environment variables (or use a `.env`): `DATABASE_URL` or the `DHS_DB_*` vars, `DHS_SECRET`, `DHS_ADMIN_EMAIL`, `DHS_PASSWORD`. See `run_web.py` and `loader/config.py` for details.
+
+### Initialize DB and load data
+
+Create the database and run the loader to discover and import files placed in `data/`:
+
+```bash
+createdb dhs
+python -m loader all
+```
+
+To load a specific survey or resume a failed run:
+
+```bash
+python -m loader load --only-year 2024 --only-program DHS
+```
+
+### Run the web app
+
+```bash
+python run_web.py
+```
+
+Open http://localhost:5000 and sign in with the admin email/password set earlier.
+
+## Docker
+
+Start locally with Docker Compose:
 
 ```bash
 docker compose up --build
 ```
 
-This starts PostgreSQL and the web app. Place `.zip` files in `./data/` and use the Upload page or CLI.
+Place ZIPs in `./data/` and use the Upload page or CLI.
 
-## Deploy Free (Render + Neon)
+## Demo and screenshots
 
-### Step 1: Create a Neon database
+- Live demo: replace the placeholder below with your deployed URL (e.g. Render):
 
-1. Sign up at [neon.tech](https://neon.tech) (free, no credit card)
-2. Create a new project, pick any region
-3. Copy the **connection string** — it looks like:
-   ```
-   postgresql://user:pass@ep-xxx.region.aws.neon.tech/neondb?sslmode=require
-   ```
+- Live Demo: https://your-app.onrender.com
 
-### Step 2: Push to GitHub
+- Screenshots: add images to `webapp/static/screenshots/` (create the folder if needed) and reference them here. Example markdown to embed an image:
 
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-git remote add origin https://github.com/YOUR_USER/DHS_Project.git
-git push -u origin main
+```markdown
+![Dashboard screenshot](webapp/static/screenshots/dashboard.png)
 ```
 
-### Step 3: Deploy on Render
+If you don't yet have screenshots, the `webapp/static/screenshots/` folder is a good place to add them; the README will show them once committed.
 
-**Option A — One-click (uses render.yaml):**
+## Project structure (high level)
 
-1. Go to [render.com](https://render.com) and sign up (free)
-2. Click **New** → **Blueprint**
-3. Connect your GitHub repo
-4. Render reads `render.yaml` and creates the web service + database automatically
-5. In the service environment, set `DATABASE_URL` to your **Neon** connection string (instead of using Render's built-in DB, which is only free for 90 days)
+- `loader/` — ETL pipeline and CLI
+- `webapp/` — Flask app, blueprints, templates, static
+- `migrations/` — SQL migration scripts
+- `tests/` — unit and integration tests
 
-**Option B — Manual setup:**
+## Deploy (Render + Neon)
 
-1. Go to Render → **New** → **Web Service**
-2. Connect your GitHub repo
-3. Settings:
-   - **Build command:** `./build.sh`
-   - **Start command:** `gunicorn webapp.app:app -b 0.0.0.0:$PORT -w 2 --timeout 120`
-   - **Environment:** Python 3
-4. Add environment variables:
+This project includes a `render.yaml` blueprint. Typical steps:
 
-| Variable | Value |
-|---|---|
-| `DATABASE_URL` | Your Neon connection string |
-| `DHS_SECRET` | Any random string (e.g. `openssl rand -hex 32`) |
-| `DHS_PASSWORD` | Your chosen admin password |
-| `DHS_ADMIN_EMAIL` | Your admin email address |
-| `SMTP_USER` | Gmail address for sending login emails |
-| `SMTP_PASSWORD` | Gmail app password |
+1. Create a Neon Postgres database and copy the connection string.
+2. Push this repo to GitHub and connect Render to the repo.
+3. Set `DATABASE_URL`, `DHS_SECRET`, `DHS_ADMIN_EMAIL`, `DHS_PASSWORD`, and optional SMTP vars in the Render service settings.
 
-5. Click **Deploy**
+## Contributing
 
-### Step 4: Load data
+Contributions welcome. Please open issues for bugs or feature requests and submit pull requests against `main`.
 
-Once deployed, open your Render URL, log in, and use the **Upload** page to upload DHS `.zip` files. The app runs migrations automatically on first deploy.
+## License
 
-### Free tier limits
-
-| Service | Limit | Notes |
-|---|---|---|
-| **Neon** | 0.5 GB storage | Enough for ~5-10 DHS survey waves |
-| **Render** | 750 hrs/month | Spins down after 15 min idle, ~30s cold start |
-
-> **Tip:** You can delete older survey waves from the admin UI to free up Neon storage before uploading new data. The `DROP TABLE` used for wide tables reclaims space immediately; row deletions are reclaimed by Neon's autovacuum.
-
-## Project Structure
-
-```
-DHS_Project/
-├── loader/              # ETL pipeline
-│   ├── config.py        # Database & path configuration
-│   ├── discover.py      # Zip file scanning & metadata extraction
-│   ├── catalog.py       # Catalog table helpers
-│   ├── ingest.py        # Data reading & bulk loading
-│   └── main.py          # CLI entry point
-├── webapp/              # Flask web application
-│   ├── app.py           # Application factory, auth routes
-│   ├── db.py            # DB helpers & SQL safety
-│   ├── email.py         # SMTP email sending (magic links, notifications)
-│   ├── helpers.py       # Shared constants
-│   ├── jobs.py          # Background job management
-│   ├── routes/          # Route blueprints
-│   │   ├── dashboard.py
-│   │   ├── upload.py
-│   │   ├── explore.py
-│   │   ├── search.py
-│   │   ├── analysis.py
-│   │   ├── compare.py
-│   │   ├── data_api.py  # Export, stats, preview
-│   │   ├── manage.py    # Delete operations
-│   │   └── users.py     # User management (admin)
-│   ├── templates/       # Jinja2 HTML templates
-│   └── static/          # CSS
-├── migrations/          # SQL schema migrations
-├── tests/               # Test suite
-├── Dockerfile
-├── docker-compose.yml
-├── render.yaml          # Render deployment blueprint
-└── requirements.txt
-```
-
-## Database Schema
-
-**Catalog layer** (`catalog` schema):
-- `country` — ISO codes and names
-- `survey_program` — DHS, MIS, AIS, SPA, KAP
-- `survey_wave` — One per country + program + year
-- `survey_file` — Individual recode files within a wave
-- `import_batch` — Audit trail with logs
-- `app_user` — User accounts with roles, status, login tokens, and password hashes
-
-**Microdata layer** (`microdata` schema):
-- Dynamic wide tables for core recodes (HR, IR, PR, KR, BR, MR)
-- `observation` — JSONB store for auxiliary recode types
-- `variable_dictionary` — Variable metadata from Stata headers
-- `value_labels` — Code-to-label mappings
-
-## API Reference
-
-All API endpoints require authentication. Pass `?token=<password>` or set the `X-API-Token` header. Session-based auth (from the web UI) also works.
-
-### Data Export
-
-```
-GET /api/file/<file_id>/data
-```
-
-| Parameter | Type | Description |
-|---|---|---|
-| `columns` | string | Comma-separated variable names (default: first 500) |
-| `format` | string | `csv`, `xlsx`, or `json` (default: `csv`) |
-| `labels` | bool | Apply value labels (default: `true`) |
-| `header_labels` | bool | Use labels as column headers (default: `true`) |
-| `limit` | int | Max rows |
-| `offset` | int | Skip first N rows |
-
-### Variable Search
-
-```
-GET /api/search?q=<query>
-```
-
-### Frequency Table
-
-```
-GET /api/analysis/frequency?file_id=<id>&var=<name>
-```
-
-### Cross-tabulation
-
-```
-GET /api/analysis/crosstab?file_id=<id>&row_var=<name>&col_var=<name>
-```
-
-### Variable Statistics
-
-```
-GET /api/file/<file_id>/stats/<var_name>
-```
-
-### Data Management (admin only)
-
-```
-POST /api/file/<file_id>/delete
-POST /api/wave/<wave_id>/delete
-```
-
-### User Management (admin only)
-
-```
-POST /api/users/<id>/approve
-POST /api/users/<id>/reject
-POST /api/users/<id>/disable
-POST /api/users/<id>/enable
-POST /api/users/<id>/new-link
-POST /api/users/<id>/set-password
-POST /api/users/<id>/delete
-```
+See the `LICENSE` file at the repository root.
