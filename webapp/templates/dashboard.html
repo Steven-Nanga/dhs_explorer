@@ -2,7 +2,10 @@
 {% block title %}Dashboard — DHS Explorer{% endblock %}
 
 {% block content %}
-<h4 class="page-title mb-1">Dashboard</h4>
+<div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+  <h4 class="page-title mb-0">Dashboard</h4>
+  <span class="badge bg-info-subtle text-info">{{ freshness_label }}</span>
+</div>
 <p class="text-muted-sm mb-4">Overview of loaded DHS recode files and a quick path into exploration tools.</p>
 
 <!-- Stat cards -->
@@ -89,10 +92,85 @@
   </div>
 </div>
 
-<!-- Recent imports -->
-{% if batches %}
+<!-- Public data updates -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-5">
+    <div class="card card-clean p-3 h-100">
+      <h6 class="fw-semibold mb-3">Latest Data Update</h6>
+      {% if latest_success %}
+      <div class="d-flex align-items-start gap-2">
+        <i class="bi bi-check-circle-fill text-success mt-1"></i>
+        <div class="min-w-0">
+          <div class="fw-semibold">{{ latest_success[0] }} {{ latest_success[1] }} {{ latest_success[2] }}</div>
+          <div class="text-muted-sm">
+            {{ (latest_success[3] or 0)|commas }} rows loaded
+            {% if latest_success[4] %} · {{ latest_success[4].strftime('%Y-%m-%d %H:%M') }}{% endif %}
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <p class="text-muted-sm mb-0">No successful imports with loaded rows yet.</p>
+      {% endif %}
+      <hr>
+      <h6 class="fw-semibold mb-2">What’s New</h6>
+      {% if latest_updates %}
+      <ul class="list-unstyled mb-0">
+        {% for u in latest_updates %}
+        <li class="mb-2">
+          <span class="fw-semibold">{{ u[0] }} {{ u[1] }} {{ u[2] }}</span>
+          <div class="text-muted-sm">{{ (u[3] or 0)|commas }} rows</div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="text-muted-sm mb-0">Newly loaded surveys will appear here.</p>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="table-wrap h-100">
+      <div class="p-3 pb-0 d-flex justify-content-between align-items-center">
+        <h6 class="fw-semibold mb-0">Coverage by Country</h6>
+        <a href="/explore" class="small text-decoration-none">Open Explore</a>
+      </div>
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Country</th>
+            <th class="text-end">Waves</th>
+            <th class="text-end">Files</th>
+            <th class="text-end">Rows</th>
+            <th class="text-end">Latest Year</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in coverage_rows %}
+          <tr>
+            <td>{{ c[0] }}</td>
+            <td class="text-end">{{ c[1] }}</td>
+            <td class="text-end">{{ c[2] }}</td>
+            <td class="text-end">{{ (c[3] or 0)|commas }}</td>
+            <td class="text-end text-muted-sm">{{ c[4] or '—' }}</td>
+          </tr>
+          {% endfor %}
+          {% if not coverage_rows %}
+          <tr>
+            <td colspan="5" class="text-muted-sm">No country coverage data yet.</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Admin import jobs -->
+{% if is_admin and batches %}
 <div class="table-wrap">
-  <div class="p-3 pb-0"><h6 class="fw-semibold">Recent Imports</h6></div>
+  <div class="p-3 pb-0 d-flex justify-content-between align-items-center">
+    <h6 class="fw-semibold mb-0">Import Jobs (Admin)</h6>
+    <span class="text-muted-sm">Stale zero-progress runs are hidden</span>
+  </div>
   <table class="table table-sm align-middle">
     <thead>
       <tr>
@@ -101,6 +179,7 @@
         <th class="text-end">Files</th>
         <th class="text-end">Rows</th>
         <th>Started</th>
+        <th>Duration</th>
       </tr>
     </thead>
     <tbody>
@@ -119,6 +198,15 @@
         <td class="text-end">{{ b[5] or 0 }}</td>
         <td class="text-end">{{ (b[6] or 0)|commas }}</td>
         <td class="text-muted-sm">{{ b[7].strftime('%Y-%m-%d %H:%M') if b[7] else '' }}</td>
+        <td class="text-muted-sm">
+          {% if b[7] and b[8] %}
+            {{ (((b[8] - b[7]).total_seconds() / 60) | round(1)) }} min
+          {% elif b[7] and b[4] == 'running' %}
+            in progress
+          {% else %}
+            —
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>
