@@ -2,8 +2,16 @@
 {% block title %}Analysis — DHS Explorer{% endblock %}
 
 {% block content %}
-<h4 class="page-title mb-4"><i class="bi bi-calculator me-2"></i>Analysis</h4>
+<h4 class="page-title mb-1"><i class="bi bi-calculator me-2"></i>Analysis</h4>
+<p class="text-muted-sm mb-4">Frequency tables and cross-tabs for variables in any loaded file.</p>
 
+{% if not files %}
+<div class="card card-clean p-4 text-center">
+  <i class="bi bi-bar-chart fs-1 text-muted d-block mb-2" aria-hidden="true"></i>
+  <p class="text-muted mb-2">There are no datasets with loaded rows yet.</p>
+  <a href="/explore" class="btn btn-outline-primary btn-sm">Explore surveys</a>
+</div>
+{% else %}
 <div class="row g-4">
   <!-- Controls -->
   <div class="col-lg-4">
@@ -63,9 +71,11 @@
     </div>
   </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
+{% if files %}
 <script>
 let allVars = [];
 
@@ -76,19 +86,25 @@ async function loadVars() {
   document.getElementById('varControls').style.display = 'none';
   document.getElementById('varLoading').style.display = 'block';
 
-  const res = await fetch(`/api/file/${fileId}/variables`);
-  const data = await res.json();
-  allVars = data.variables;
+  try {
+    const res = await fetch(`/api/file/${fileId}/variables`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    allVars = data.variables || [];
 
-  const html = allVars.map(v =>
-    `<option value="${v.name}">${v.name}${v.label ? ' — ' + v.label : ''}</option>`
-  ).join('');
+    const html = allVars.map(v =>
+      `<option value="${v.name}">${v.name}${v.label ? ' — ' + v.label : ''}</option>`
+    ).join('');
 
-  document.getElementById('varSelect').innerHTML = html;
-  document.getElementById('colVarSelect').innerHTML = html;
+    document.getElementById('varSelect').innerHTML = html;
+    document.getElementById('colVarSelect').innerHTML = html;
 
-  document.getElementById('varLoading').style.display = 'none';
-  document.getElementById('varControls').style.display = 'block';
+    document.getElementById('varControls').style.display = 'block';
+  } catch (e) {
+    alert('Could not load variables for this file. Try again or pick another dataset.');
+  } finally {
+    document.getElementById('varLoading').style.display = 'none';
+  }
 }
 
 function toggleVars() {
@@ -103,19 +119,25 @@ async function runAnalysis() {
   const isCross = document.getElementById('typeCross').checked;
 
   const area = document.getElementById('resultArea');
-  area.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>';
+  area.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading…</span></div></div>';
 
-  if (isCross) {
-    const colVar = document.getElementById('colVarSelect').value;
-    const res = await fetch(`/api/analysis/crosstab?file_id=${fileId}&row_var=${varName}&col_var=${colVar}&labels=${labels}`);
-    const data = await res.json();
-    if (data.error) { area.innerHTML = `<div class="alert alert-danger">${data.error}</div>`; return; }
-    renderCrosstab(data);
-  } else {
-    const res = await fetch(`/api/analysis/frequency?file_id=${fileId}&var=${varName}&labels=${labels}`);
-    const data = await res.json();
-    if (data.error) { area.innerHTML = `<div class="alert alert-danger">${data.error}</div>`; return; }
-    renderFrequency(data);
+  try {
+    if (isCross) {
+      const colVar = document.getElementById('colVarSelect').value;
+      const res = await fetch(`/api/analysis/crosstab?file_id=${fileId}&row_var=${encodeURIComponent(varName)}&col_var=${encodeURIComponent(colVar)}&labels=${labels}`);
+      if (!res.ok) throw new Error('Request failed');
+      const data = await res.json();
+      if (data.error) { area.innerHTML = `<div class="alert alert-danger">${data.error}</div>`; return; }
+      renderCrosstab(data);
+    } else {
+      const res = await fetch(`/api/analysis/frequency?file_id=${fileId}&var=${encodeURIComponent(varName)}&labels=${labels}`);
+      if (!res.ok) throw new Error('Request failed');
+      const data = await res.json();
+      if (data.error) { area.innerHTML = `<div class="alert alert-danger">${data.error}</div>`; return; }
+      renderFrequency(data);
+    }
+  } catch (e) {
+    area.innerHTML = '<div class="alert alert-danger mb-0">Something went wrong while running the analysis. Check your connection and try again.</div>';
   }
 }
 
@@ -178,4 +200,5 @@ function renderCrosstab(data) {
   area.innerHTML = html;
 }
 </script>
+{% endif %}
 {% endblock %}

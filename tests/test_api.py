@@ -12,6 +12,26 @@ def test_search_api(authed_client):
     assert data["query"] == "education"
 
 
+def test_search_api_filters(authed_client):
+    base = authed_client.get("/api/search?q=case")
+    assert base.status_code == 200
+    data = json.loads(base.data)
+    if data["count"] > 0:
+        row = data["results"][0]
+        country = row["country"]
+        recode = row["recode_type"]
+        year = row["year"]
+        resp = authed_client.get(
+            f"/api/search?q=case&country={country}&recode={recode}&year={year}"
+        )
+        assert resp.status_code == 200
+        filtered = json.loads(resp.data)
+        for r in filtered["results"]:
+            assert r["country"] == country
+            assert r["recode_type"] == recode
+            assert str(r["year"]) == str(year)
+
+
 def test_search_too_short(authed_client):
     resp = authed_client.get("/api/search?q=a")
     data = json.loads(resp.data)

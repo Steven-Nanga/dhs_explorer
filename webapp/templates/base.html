@@ -9,45 +9,46 @@
   <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
 </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to main content</a>
 
 {# Sidebar nav content — reused for desktop and mobile #}
 {% macro sidebar_nav() %}
     <ul class="nav nav-pills flex-column mb-auto">
       <li class="nav-item">
-        <a href="/" class="nav-link {{ 'active' if request.path == '/' }}">
+        <a href="/" class="nav-link {{ 'active' if request.path == '/' }}" {% if request.path == '/' %}aria-current="page"{% endif %}>
           <i class="bi bi-speedometer2 me-2"></i>Dashboard
         </a>
       </li>
       {% if current_user_role == 'admin' %}
       <li class="nav-item">
-        <a href="/upload" class="nav-link {{ 'active' if request.path.startswith('/upload') }}">
+        <a href="/upload" class="nav-link {{ 'active' if request.path.startswith('/upload') }}" {% if request.path.startswith('/upload') %}aria-current="page"{% endif %}>
           <i class="bi bi-cloud-arrow-up me-2"></i>Upload Data
         </a>
       </li>
       {% endif %}
       <li class="nav-item">
-        <a href="/explore" class="nav-link {{ 'active' if request.path.startswith('/explore') }}">
+        <a href="/explore" class="nav-link {{ 'active' if request.path.startswith('/explore') }}" {% if request.path.startswith('/explore') %}aria-current="page"{% endif %}>
           <i class="bi bi-folder2-open me-2"></i>Explore Data
         </a>
       </li>
       <li class="nav-item">
-        <a href="/search" class="nav-link {{ 'active' if request.path.startswith('/search') }}">
+        <a href="/search" class="nav-link {{ 'active' if request.path.startswith('/search') }}" {% if request.path.startswith('/search') %}aria-current="page"{% endif %}>
           <i class="bi bi-search me-2"></i>Search Variables
         </a>
       </li>
       <li class="nav-item">
-        <a href="/analysis" class="nav-link {{ 'active' if request.path.startswith('/analysis') }}">
+        <a href="/analysis" class="nav-link {{ 'active' if request.path.startswith('/analysis') }}" {% if request.path.startswith('/analysis') %}aria-current="page"{% endif %}>
           <i class="bi bi-calculator me-2"></i>Analysis
         </a>
       </li>
       <li class="nav-item">
-        <a href="/compare" class="nav-link {{ 'active' if request.path.startswith('/compare') }}">
+        <a href="/compare" class="nav-link {{ 'active' if request.path.startswith('/compare') }}" {% if request.path.startswith('/compare') %}aria-current="page"{% endif %}>
           <i class="bi bi-arrow-left-right me-2"></i>Compare Waves
         </a>
       </li>
       {% if current_user_role == 'admin' %}
       <li class="nav-item mt-2">
-        <a href="/users" class="nav-link {{ 'active' if request.path.startswith('/users') }}">
+        <a href="/users" class="nav-link {{ 'active' if request.path.startswith('/users') }}" {% if request.path.startswith('/users') %}aria-current="page"{% endif %}>
           <i class="bi bi-people me-2"></i>Manage Users
         </a>
       </li>
@@ -121,7 +122,7 @@
   </nav>
 
   <!-- Main -->
-  <main class="main-content flex-grow-1">
+  <main id="main-content" class="main-content flex-grow-1" tabindex="-1">
     <div class="container-fluid p-3 p-lg-4">
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -133,6 +134,32 @@
           {% endfor %}
         {% endif %}
       {% endwith %}
+      {% if not current_user_role and request.endpoint not in ('login', 'request_access') %}
+      <div id="uxWelcomeBanner" class="alert ux-welcome-banner alert-dismissible fade show d-none mb-4" role="region" aria-label="Getting started">
+        <div class="d-flex flex-wrap align-items-start gap-2">
+          <i class="bi bi-info-circle-fill text-primary flex-shrink-0 mt-1" aria-hidden="true"></i>
+          <div class="flex-grow-1 min-w-0">
+            <strong class="d-block">No account needed to explore</strong>
+            <p class="text-muted small mb-0 mt-1">Search variables, open datasets, run tables, compare waves, and download exports. Use <strong>Admin sign in</strong> in the sidebar only if you manage uploads and the catalog.</p>
+            <div class="mt-2 d-flex flex-wrap gap-2">
+              <a class="btn btn-sm btn-primary" href="{{ url_for('explore.explore_page') }}">Explore data</a>
+              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('search.search_page') }}">Search variables</a>
+              <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('request_access') }}">About access</a>
+            </div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Dismiss welcome message"></button>
+        </div>
+      </div>
+      <script>
+      (function () {
+        var key = 'dhs_welcome_v1';
+        var el = document.getElementById('uxWelcomeBanner');
+        if (!el) return;
+        if (!localStorage.getItem(key)) el.classList.remove('d-none');
+        el.addEventListener('closed.bs.alert', function () { localStorage.setItem(key, '1'); });
+      })();
+      </script>
+      {% endif %}
       {% block content %}{% endblock %}
     </div>
   </main>

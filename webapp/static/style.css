@@ -252,6 +252,43 @@
   padding: 16px;
 }
 
+/* ── Skip link (keyboard / screen reader) ─────────────────────── */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0.5rem;
+  z-index: 3000;
+  padding: 0.5rem 1rem;
+  background: #fff;
+  color: #1e293b;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.12);
+  font-weight: 600;
+  font-size: .875rem;
+  text-decoration: none;
+}
+.skip-link:focus {
+  left: 0.5rem;
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Welcome banner ─────────────────────────────────────────────── */
+.ux-welcome-banner {
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(14, 165, 233, 0.06) 100%);
+  border-radius: 14px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stat-card,
+  .upload-zone {
+    transition: none;
+  }
+  .stat-card:hover {
+    transform: none;
+  }
+}
+
 /* ── Misc ──────────────────────────────────────────────────────── */
 .page-title { font-weight: 700; color: #1e293b; }
 .text-muted-sm { font-size: .82rem; color: #64748b; }

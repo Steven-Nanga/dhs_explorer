@@ -8,13 +8,39 @@
   <div class="col-12 col-lg-8">
     <div class="input-group input-group-lg">
       <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-      <input type="text" id="searchInput" class="form-control" placeholder="Search variable name or label…" autofocus>
+      <input type="text" id="searchInput" class="form-control" placeholder="Search variable name or label…" autofocus autocomplete="off" aria-describedby="searchHint">
     </div>
-    <div class="text-muted-sm mt-1">Searches across all loaded datasets. Minimum 2 characters.</div>
+    <div class="text-muted-sm mt-1" id="searchHint">Searches variable names and labels across all loaded files. Type at least 2 characters; results appear as you pause typing.</div>
   </div>
 </div>
 
-<div id="searchStatus" style="display:none" class="mb-3"></div>
+<div class="row g-2 mb-3">
+  <div class="col-12 col-md-4 col-lg-3">
+    <label for="countryFilter" class="form-label small text-muted mb-1">Country</label>
+    <select id="countryFilter" class="form-select form-select-sm">
+      <option value="">All countries</option>
+    </select>
+  </div>
+  <div class="col-12 col-md-4 col-lg-3">
+    <label for="recodeFilter" class="form-label small text-muted mb-1">Recode</label>
+    <select id="recodeFilter" class="form-select form-select-sm">
+      <option value="">All recodes</option>
+    </select>
+  </div>
+  <div class="col-12 col-md-4 col-lg-3">
+    <label for="yearFilter" class="form-label small text-muted mb-1">Year</label>
+    <select id="yearFilter" class="form-select form-select-sm">
+      <option value="">All years</option>
+    </select>
+  </div>
+  <div class="col-12 col-lg-3 d-flex align-items-end">
+    <button id="clearFiltersBtn" class="btn btn-outline-secondary btn-sm w-100" type="button">
+      <i class="bi bi-x-circle me-1"></i>Clear filters
+    </button>
+  </div>
+</div>
+
+<div id="searchStatus" style="display:none" class="mb-3" role="status" aria-live="polite"></div>
 
 <div id="searchResults"></div>
 {% endblock %}
@@ -22,34 +48,102 @@
 {% block scripts %}
 <script>
 let debounce;
-document.getElementById('searchInput').addEventListener('input', function() {
+let latestResults = [];
+const searchInput = document.getElementById('searchInput');
+const countryFilter = document.getElementById('countryFilter');
+const recodeFilter = document.getElementById('recodeFilter');
+const yearFilter = document.getElementById('yearFilter');
+const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+searchInput.addEventListener('input', function() {
   clearTimeout(debounce);
   const q = this.value.trim();
   if (q.length < 2) {
     document.getElementById('searchResults').innerHTML = '';
     document.getElementById('searchStatus').style.display = 'none';
+    latestResults = [];
+    resetFilterOptions();
     return;
   }
   debounce = setTimeout(() => doSearch(q), 300);
 });
 
+for (const el of [countryFilter, recodeFilter, yearFilter]) {
+  el.addEventListener('change', () => {
+    const q = searchInput.value.trim();
+    if (q.length >= 2) doSearch(q);
+  });
+}
+
+clearFiltersBtn.addEventListener('click', () => {
+  countryFilter.value = '';
+  recodeFilter.value = '';
+  yearFilter.value = '';
+  const q = searchInput.value.trim();
+  if (q.length >= 2) doSearch(q);
+});
+
+function resetFilterOptions() {
+  countryFilter.innerHTML = '<option value="">All countries</option>';
+  recodeFilter.innerHTML = '<option value="">All recodes</option>';
+  yearFilter.innerHTML = '<option value="">All years</option>';
+}
+
+function setOptions(selectEl, values, allLabel) {
+  const selected = selectEl.value;
+  selectEl.innerHTML = `<option value="">${allLabel}</option>`;
+  values.forEach(v => {
+    const option = document.createElement('option');
+    option.value = v;
+    option.textContent = v;
+    selectEl.appendChild(option);
+  });
+  if (selected && values.includes(selected)) {
+    selectEl.value = selected;
+  }
+}
+
+function refreshFilterOptions(results) {
+  const countries = [...new Set(results.map(r => r.country).filter(Boolean))].sort();
+  const recodes = [...new Set(results.map(r => r.recode_type).filter(Boolean))].sort();
+  const years = [...new Set(results.map(r => r.year).filter(Boolean))].sort((a, b) => String(b).localeCompare(String(a)));
+  setOptions(countryFilter, countries, 'All countries');
+  setOptions(recodeFilter, recodes, 'All recodes');
+  setOptions(yearFilter, years, 'All years');
+}
+
 async function doSearch(q) {
   const status = document.getElementById('searchStatus');
+  const resultsEl = document.getElementById('searchResults');
   status.style.display = 'block';
-  status.innerHTML = '<div class="spinner-border spinner-border-sm text-primary me-2"></div>Searching…';
+  status.innerHTML = '<span class="d-inline-flex align-items-center gap-2 text-muted"><span class="spinner-border spinner-border-sm text-primary" role="presentation"></span>Searching…</span>';
 
-  const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-  const data = await res.json();
+  let data;
+  try {
+    const params = new URLSearchParams();
+    params.set('q', q);
+    if (countryFilter.value) params.set('country', countryFilter.value);
+    if (recodeFilter.value) params.set('recode', recodeFilter.value);
+    if (yearFilter.value) params.set('year', yearFilter.value);
+    const res = await fetch(`/api/search?${params.toString()}`);
+    if (!res.ok) throw new Error('Server returned ' + res.status);
+    data = await res.json();
+  } catch (e) {
+    status.innerHTML = '<span class="text-danger small">Could not run search. Check your connection and try again.</span>';
+    resultsEl.innerHTML = '';
+    return;
+  }
 
+  latestResults = data.results || [];
+  refreshFilterOptions(latestResults);
   status.innerHTML = `<span class="badge bg-primary-subtle text-primary">${data.count}</span> variables found for "<strong>${data.query}</strong>"`;
 
-  if (!data.results.length) {
-    document.getElementById('searchResults').innerHTML = '<p class="text-muted mt-3">No matching variables found.</p>';
+  if (!latestResults.length) {
+    resultsEl.innerHTML = '<p class="text-muted mt-3 mb-0">No matching variables. Try a shorter spelling, another keyword, or browse from <a href="/explore">Explore</a>.</p>';
     return;
   }
 
   const grouped = {};
-  data.results.forEach(r => {
+  latestResults.forEach(r => {
     const key = `${r.country} ${r.program} ${r.year} — ${r.file_stem} (${r.recode_type})`;
     if (!grouped[key]) grouped[key] = { file_id: r.file_id, items: [] };
     grouped[key].items.push(r);
@@ -67,19 +161,101 @@ async function doSearch(q) {
       <div class="card-body p-0" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
         <table class="table table-sm table-hover mb-0">
           <thead><tr>
-            <th class="ps-3">Variable</th><th>Label</th><th class="d-none d-sm-table-cell">Type</th>
+            <th class="ps-3">Variable</th><th>Label</th><th class="d-none d-sm-table-cell">Type</th><th style="width:150px">Preview</th>
           </tr></thead><tbody>`;
     info.items.forEach(r => {
+      const safeVar = String(r.var_name || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const rowKey = `dist_${r.file_id}_${safeVar}`;
       html += `<tr>
         <td class="ps-3 font-monospace fw-semibold text-nowrap">${r.var_name}</td>
         <td>${r.var_label || '<span class="text-muted">—</span>'}</td>
         <td class="text-muted small d-none d-sm-table-cell">${r.pg_type || ''}</td>
+        <td>
+          <button class="btn btn-outline-secondary btn-sm py-0"
+                  type="button"
+                  data-file-id="${r.file_id}"
+                  data-var-name="${r.var_name}"
+                  data-row-id="${rowKey}"
+                  onclick="toggleDistributionFromButton(this)">
+            <i class="bi bi-bar-chart-line me-1"></i>Preview
+          </button>
+        </td>
+      </tr>`;
+      html += `<tr id="${rowKey}" style="display:none">
+        <td colspan="4" class="ps-3 pe-3 pb-3">
+          <div class="small text-muted">Loading distribution…</div>
+        </td>
       </tr>`;
     });
     html += '</tbody></table></div></div>';
   }
 
-  document.getElementById('searchResults').innerHTML = html;
+  resultsEl.innerHTML = html;
+}
+
+function toggleDistributionFromButton(btn) {
+  const fileId = Number(btn.dataset.fileId || 0);
+  const varName = btn.dataset.varName || '';
+  const rowId = btn.dataset.rowId || '';
+  if (!fileId || !varName || !rowId) return;
+  toggleDistribution(fileId, varName, rowId);
+}
+
+async function toggleDistribution(fileId, varName, rowId) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  if (row.style.display !== 'none' && row.dataset.loaded === '1') {
+    row.style.display = 'none';
+    return;
+  }
+  row.style.display = '';
+  if (row.dataset.loaded === '1') return;
+
+  const cell = row.querySelector('td');
+  cell.innerHTML = '<div class="small text-muted">Loading distribution…</div>';
+
+  try {
+    const res = await fetch(`/api/file/${fileId}/stats/${encodeURIComponent(varName)}`);
+    if (!res.ok) throw new Error('Server returned ' + res.status);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    cell.innerHTML = renderDistributionCard(data);
+    row.dataset.loaded = '1';
+  } catch (e) {
+    cell.innerHTML = `<div class="small text-danger">Could not load distribution: ${e.message}</div>`;
+  }
+}
+
+function renderDistributionCard(stats) {
+  const freq = (stats.frequency || []).slice(0, 8);
+  if (!freq.length) return '<div class="small text-muted mb-0">No frequency data available.</div>';
+  const maxCount = Math.max(...freq.map(f => Number(f.count || 0)), 1);
+  let html = `
+    <div class="p-2 border rounded bg-light">
+      <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+        <span class="badge bg-secondary-subtle text-secondary">${stats.type || 'variable'}</span>
+        <span class="small text-muted">Top values</span>
+      </div>
+  `;
+  freq.forEach(f => {
+    const count = Number(f.count || 0);
+    const pct = Number(f.pct || 0);
+    const width = Math.max(3, Math.round((count / maxCount) * 100));
+    const label = (f.label && String(f.label).trim()) ? f.label : (f.value ?? 'Missing');
+    html += `
+      <div class="mb-2">
+        <div class="d-flex justify-content-between small mb-1">
+          <span class="text-truncate pe-2" style="max-width:70%">${label}</span>
+          <span class="text-muted">${count.toLocaleString()} (${pct.toFixed(1)}%)</span>
+        </div>
+        <div style="height:8px;background:#e2e8f0;border-radius:6px;overflow:hidden">
+          <div style="height:8px;background:#6366f1;width:${width}%"></div>
+        </div>
+      </div>
+    `;
+  });
+  html += '</div>';
+  return html;
 }
 </script>
 {% endblock %}

@@ -2,8 +2,16 @@
 {% block title %}Compare Waves — DHS Explorer{% endblock %}
 
 {% block content %}
-<h4 class="page-title mb-4"><i class="bi bi-arrow-left-right me-2"></i>Compare Survey Waves</h4>
+<h4 class="page-title mb-1"><i class="bi bi-arrow-left-right me-2"></i>Compare Survey Waves</h4>
+<p class="text-muted-sm mb-4">See which variables overlap across two or more files of the same recode type (e.g. HR–HR).</p>
 
+{% if not files %}
+<div class="card card-clean p-4 text-center">
+  <i class="bi bi-arrow-left-right fs-1 text-muted d-block mb-2" aria-hidden="true"></i>
+  <p class="text-muted mb-2">No files are available to compare yet.</p>
+  <a href="/explore" class="btn btn-outline-primary btn-sm">Explore surveys</a>
+</div>
+{% else %}
 <div class="row g-4">
   <!-- Controls -->
   <div class="col-lg-4">
@@ -47,9 +55,11 @@
     </div>
   </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
+{% if files %}
 <script>
 function filterFiles() {
   const rt = document.getElementById('recodeFilter').value;
@@ -72,10 +82,17 @@ function updateCompareBtn() {
 async function runCompare() {
   const ids = getChecked();
   const area = document.getElementById('compareArea');
-  area.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>';
+  area.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading…</span></div></div>';
 
-  const res = await fetch(`/api/compare?file_ids=${ids.join(',')}`);
-  const data = await res.json();
+  let data;
+  try {
+    const res = await fetch(`/api/compare?file_ids=${ids.join(',')}`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    data = await res.json();
+  } catch (e) {
+    area.innerHTML = '<div class="alert alert-danger mb-0">Could not compare files. Check your connection and try again.</div>';
+    return;
+  }
   if (data.error) { area.innerHTML = `<div class="alert alert-danger">${data.error}</div>`; return; }
 
   renderComparison(data);
@@ -143,4 +160,5 @@ function filterCompareRows() {
   });
 }
 </script>
+{% endif %}
 {% endblock %}

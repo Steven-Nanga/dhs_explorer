@@ -2,13 +2,19 @@
 {% block title %}Explore — DHS Explorer{% endblock %}
 
 {% block content %}
-<h4 class="page-title mb-4">Explore Surveys</h4>
+<h4 class="page-title mb-1">Explore Surveys</h4>
+<p class="text-muted-sm mb-4">Browse by country, open a survey wave, then pick a file to see variables, previews, and exports.</p>
 
 {% if not countries %}
 <div class="card card-clean p-4 text-center">
-  <i class="bi bi-inbox fs-1 text-muted d-block mb-2"></i>
-  <p class="text-muted mb-2">No data loaded yet.</p>
-  <a href="/upload" class="btn btn-primary btn-sm">Upload Data</a>
+  <i class="bi bi-inbox fs-1 text-muted d-block mb-2" aria-hidden="true"></i>
+  <p class="text-muted mb-2">No survey data is loaded in this database yet.</p>
+  {% if current_user_role == 'admin' %}
+  <a href="/upload" class="btn btn-primary btn-sm"><i class="bi bi-cloud-arrow-up me-1"></i>Upload data</a>
+  {% else %}
+  <p class="small text-muted mb-2">Check back later, or ask an administrator to add datasets.</p>
+  <a href="/" class="btn btn-outline-secondary btn-sm">Back to dashboard</a>
+  {% endif %}
 </div>
 {% endif %}
 

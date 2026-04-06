@@ -471,14 +471,27 @@ let previewLoaded = false;
 document.querySelector('[data-bs-target="#tabPreview"]').addEventListener('shown.bs.tab', async () => {
   if (previewLoaded) return;
   previewLoaded = true;
-  const res = await fetch('/api/file/{{ fi[0] }}/preview');
-  const data = await res.json();
-  document.getElementById('previewLoading').style.display = 'none';
   const wrap = document.getElementById('previewContent');
+  let data;
+  try {
+    const res = await fetch('/api/file/{{ fi[0] }}/preview');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    data = await res.json();
+  } catch (e) {
+    document.getElementById('previewLoading').style.display = 'none';
+    wrap.style.display = 'block';
+    wrap.innerHTML = '<p class="text-danger small mb-0">Preview could not be loaded. Try again or use Export to download data.</p>';
+    return;
+  }
+  document.getElementById('previewLoading').style.display = 'none';
   wrap.style.display = 'block';
 
+  if (data.error) {
+    wrap.innerHTML = `<p class="text-muted mb-0">${data.error}</p>`;
+    return;
+  }
   if (!data.columns || data.columns.length === 0) {
-    wrap.innerHTML = '<p class="text-muted">No preview data available.</p>';
+    wrap.innerHTML = '<p class="text-muted mb-0">No preview rows available for this file.</p>';
     return;
   }
 

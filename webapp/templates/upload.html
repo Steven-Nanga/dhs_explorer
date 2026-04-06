@@ -2,12 +2,15 @@
 {% block title %}Upload — DHS Explorer{% endblock %}
 
 {% block content %}
-<h4 class="page-title mb-4">Upload DHS Data</h4>
+<h4 class="page-title mb-1">Upload DHS Data</h4>
+<p class="text-muted-sm mb-4">Add a recode .zip from DHS; the server unpacks and loads tables into the catalog. Large files may take several minutes.</p>
 
 <div class="row g-4">
   <!-- Drop zone -->
   <div class="col-lg-7">
-    <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+    <div class="upload-zone" id="dropZone" role="button" tabindex="0"
+         aria-label="Choose a DHS zip file to upload, or drag and drop it here"
+         onclick="document.getElementById('fileInput').click()">
       <i class="bi bi-cloud-arrow-up icon d-block mb-3"></i>
       <h5 class="fw-semibold">Drop a DHS .zip file here</h5>
       <p class="text-muted mb-2">or click to browse</p>
@@ -79,6 +82,13 @@ dropZone.addEventListener('drop', ev => {
 });
 fileInput.addEventListener('change', () => {
   if (fileInput.files[0]) uploadFile(fileInput.files[0]);
+});
+
+dropZone.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    fileInput.click();
+  }
 });
 
 async function uploadFile(file) {
